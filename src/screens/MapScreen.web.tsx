@@ -67,6 +67,18 @@ export default function MapScreen() {
   const [locationError, setLocationError] = useState('');
   const [showRefuges, setShowRefuges] = useState(true);
   const [showBivouacs, setShowBivouacs] = useState(true);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    const setOffline = () => setIsOffline(true);
+    const setOnline = () => setIsOffline(false);
+    window.addEventListener('offline', setOffline);
+    window.addEventListener('online', setOnline);
+    return () => {
+      window.removeEventListener('offline', setOffline);
+      window.removeEventListener('online', setOnline);
+    };
+  }, []);
 
   // Leaflet attend [lat, lng], le tracé est stocké en [lng, lat]
   const traceCoords: [number, number][] = GR10_TRACE_SAMPLE.map(([lng, lat]) => [lat, lng]);
@@ -187,6 +199,12 @@ export default function MapScreen() {
         </TouchableOpacity>
       </View>
 
+      {isOffline && (
+        <View style={styles.offlineBanner}>
+          <Text style={styles.offlineText}>📴 Mode hors-ligne · Fond de carte indisponible · Tracé actif</Text>
+        </View>
+      )}
+
       {locationError !== '' && (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>{locationError}</Text>
@@ -226,6 +244,17 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   btnText: { fontSize: 13, color: '#264653', fontWeight: '600' },
+  offlineBanner: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 1000,
+    backgroundColor: '#264653',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  offlineText: { fontSize: 12, color: '#A8DADC', fontWeight: '600' },
   errorBanner: {
     position: 'absolute',
     bottom: 24,

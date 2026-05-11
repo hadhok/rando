@@ -103,7 +103,34 @@ function Stat({ icon, label }: { icon: string; label: string }) {
   );
 }
 
+const CACHE_TTL_MS = 3 * 60 * 60 * 1000; // 3h
+
+function cacheKey(lat: number, lng: number) {
+  return `meteo_${lat.toFixed(3)}_${lng.toFixed(3)}`;
+}
+
+function loadCached(lat: number, lng: number): DayForecast[] | null {
+  try {
+    const raw = localStorage.getItem(cacheKey(lat, lng));
+    if (!raw) return null;
+    const { ts, days } = JSON.parse(raw);
+    if (Date.now() - ts > CACHE_TTL_MS) return null;
+    return days;
+  } catch {
+    return null;
+  }
+}
+
+function saveCache(lat: number, lng: number, days: DayForecast[]) {
+  try {
+    localStorage.setItem(cacheKey(lat, lng), JSON.stringify({ ts: Date.now(), days }));
+  } catch {}
+}
+
 async function fetchForecast(lat: number, lng: number): Promise<DayForecast[]> {
+  const cached = loadCached(lat, lng);
+  if (cached) return cached;
+
   const url =
     `https://api.open-meteo.com/v1/forecast` +
     `?latitude=${lat}&longitude=${lng}` +
@@ -112,7 +139,7 @@ async function fetchForecast(lat: number, lng: number): Promise<DayForecast[]> {
   const res = await fetch(url);
   if (!res.ok) throw new Error('Erreur réseau');
   const data = await res.json();
-  return data.daily.time.map((date: string, i: number) => ({
+  const days: DayForecast[] = data.daily.time.map((date: string, i: number) => ({
     date,
     tMax: Math.round(data.daily.temperature_2m_max[i]),
     tMin: Math.round(data.daily.temperature_2m_min[i]),
@@ -120,6 +147,8 @@ async function fetchForecast(lat: number, lng: number): Promise<DayForecast[]> {
     precipMm: Math.round(data.daily.precipitation_sum[i] * 10) / 10,
     windMax: Math.round(data.daily.windspeed_10m_max[i]),
   }));
+  saveCache(lat, lng, days);
+  return days;
 }
 
 export default function MeteoScreen() {
@@ -138,7 +167,15 @@ export default function MeteoScreen() {
       .then((days) => {
         setForecasts((prev) => ({ ...prev, [selectedIdx]: { label: selected.label, days } }));
       })
-      .catch(() => setError('Impossible de charger la météo. Vérifiez votre connexion.'))
+      .catch(() => {
+        const stale = loadCached(selected.lat, selected.lng);
+        if (stale) {
+          setForecasts((prev) => ({ ...prev, [selectedIdx]: { label: selected.label, days: stale } }));
+          setError('Données hors-ligne (dernière mise à jour disponible)');
+        } else {
+          setError('Impossible de charger la météo. Vérifiez votre connexion.');
+        }
+      })
       .finally(() => setLoading(false));
   }, [selectedIdx]);
 

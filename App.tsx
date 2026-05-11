@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text } from 'react-native';
+import { Platform, Text } from 'react-native';
 
 import MapScreen from './src/screens/MapScreen';
 import EtapesScreen from './src/screens/EtapesScreen';
@@ -27,6 +27,12 @@ function TabIcon({ label, focused }: { label: string; focused: boolean }) {
 }
 
 export default function App() {
+  useEffect(() => {
+    if (Platform.OS === 'web' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+  }, []);
+
   return (
     <NavigationContainer>
       <Tab.Navigator

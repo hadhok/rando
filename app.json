@@ -34,7 +34,13 @@
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "name": "GR10 Offline",
+      "shortName": "GR10",
+      "description": "Toutes les infos GR10 disponibles hors-connexion : tracé, étapes, refuges, bivouacs, météo et urgences.",
+      "themeColor": "#264653",
+      "backgroundColor": "#264653",
+      "lang": "fr"
     },
     "plugins": [
       [
