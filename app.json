@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "GR10 Offline",
+    "slug": "gr10-offline",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#264653"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.gr10.offline",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Votre position est utilisée pour vous localiser sur le tracé du GR10.",
+        "NSLocationAlwaysUsageDescription": "Votre position est utilisée pour vous localiser sur le tracé du GR10."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#264653"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "package": "com.gr10.offline",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "L'app utilise votre position pour vous localiser sur le tracé du GR10."
+        }
+      ]
+    ]
+  }
+}
