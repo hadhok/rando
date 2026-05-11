@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
-import { MapContainer, TileLayer, Polyline, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { GR10_TRACE_SAMPLE, GR10_CENTER } from '../data/trace';
 import { ETAPES } from '../data/etapes';
@@ -45,6 +45,37 @@ const bivouacIcon = new L.DivIcon({
 });
 
 const COLORS = { trace: '#E63946', bg: '#F1FAEE' };
+
+function LocateButton({ userLocation }: { userLocation: { lat: number; lng: number } | null }) {
+  const map = useMap();
+  function handleLocate() {
+    if (userLocation) {
+      map.flyTo([userLocation.lat, userLocation.lng], 14, { duration: 1 });
+      return;
+    }
+    navigator.geolocation?.getCurrentPosition(
+      (pos) => map.flyTo([pos.coords.latitude, pos.coords.longitude], 14, { duration: 1 }),
+      () => {},
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  }
+  return (
+    <div
+      onClick={handleLocate}
+      title="Ma position"
+      style={{
+        position: 'absolute', bottom: 90, right: 10, zIndex: 1000,
+        width: 40, height: 40, borderRadius: 8,
+        backgroundColor: 'rgba(255,255,255,0.95)',
+        boxShadow: '0 1px 5px rgba(0,0,0,0.2)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        cursor: 'pointer', fontSize: 20, userSelect: 'none',
+      }}
+    >
+      📍
+    </div>
+  );
+}
 
 // ─── Download Panel ────────────────────────────────────────────────────────
 
@@ -294,6 +325,8 @@ export default function MapScreen() {
             <Popup>Ma position</Popup>
           </Marker>
         )}
+
+        <LocateButton userLocation={userLocation} />
       </MapContainer>
 
       {/* Légende */}
