@@ -5,6 +5,7 @@ import L from 'leaflet';
 import { GR10_TRACE_SAMPLE, GR10_CENTER } from '../data/trace';
 import { ETAPES } from '../data/etapes';
 import { REFUGES } from '../data/refuges';
+import { BIVOUACS } from '../data/bivouacs';
 
 // Leaflet CSS injecté dynamiquement (évite les problèmes d'import CSS avec Metro)
 function useLeafletCSS() {
@@ -46,6 +47,14 @@ const userIcon = new L.Icon({
   shadowSize: [41, 41],
 });
 
+const bivouacIcon = new L.DivIcon({
+  html: '<div style="font-size:20px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))">⛺</div>',
+  iconSize: [24, 24],
+  iconAnchor: [12, 12],
+  popupAnchor: [0, -14],
+  className: '',
+});
+
 const COLORS = {
   trace: '#E63946',
   bg: '#F1FAEE',
@@ -57,6 +66,7 @@ export default function MapScreen() {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationError, setLocationError] = useState('');
   const [showRefuges, setShowRefuges] = useState(true);
+  const [showBivouacs, setShowBivouacs] = useState(true);
 
   // Leaflet attend [lat, lng], le tracé est stocké en [lng, lat]
   const traceCoords: [number, number][] = GR10_TRACE_SAMPLE.map(([lng, lat]) => [lat, lng]);
@@ -121,6 +131,21 @@ export default function MapScreen() {
           </Marker>
         ))}
 
+        {/* Marqueurs bivouacs */}
+        {showBivouacs && BIVOUACS.map((biv) => (
+          <Marker
+            key={`biv-${biv.id}`}
+            position={[biv.coordonnees.lat, biv.coordonnees.lng]}
+            icon={bivouacIcon}
+          >
+            <Popup>
+              <strong>⛺ {biv.nom}</strong><br />
+              {biv.altitude}m · {biv.difficulteAcces}<br />
+              💧 {biv.eau.split('.')[0]}
+            </Popup>
+          </Marker>
+        ))}
+
         {/* Position utilisateur */}
         {userLocation && (
           <Marker
@@ -146,12 +171,19 @@ export default function MapScreen() {
           <View style={[styles.legendDot, { backgroundColor: '#FFB703' }]} />
           <Text style={styles.legendText}>Refuges</Text>
         </View>
+        <View style={styles.legendRow}>
+          <Text style={styles.legendEmoji}>⛺</Text>
+          <Text style={styles.legendText}>Bivouacs</Text>
+        </View>
       </View>
 
       {/* Contrôles */}
       <View style={styles.controls}>
         <TouchableOpacity style={styles.btn} onPress={() => setShowRefuges((v) => !v)}>
           <Text style={styles.btnText}>{showRefuges ? '🏠 Masquer' : '🏠 Refuges'}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.btn} onPress={() => setShowBivouacs((v) => !v)}>
+          <Text style={styles.btnText}>{showBivouacs ? '⛺ Masquer' : '⛺ Bivouacs'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -178,6 +210,7 @@ const styles = StyleSheet.create({
   },
   legendRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendDot: { width: 10, height: 10, borderRadius: 5 },
+  legendEmoji: { fontSize: 12, width: 10, textAlign: 'center' },
   legendText: { fontSize: 12, color: '#264653' },
   controls: {
     position: 'absolute',
