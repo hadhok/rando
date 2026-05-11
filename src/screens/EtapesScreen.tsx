@@ -143,6 +143,13 @@ function EtapeDetail({ etape, onClose }: { etape: Etape; onClose: () => void }) 
             title="Hébergement à l'arrivée"
             content={etape.hebergement}
           />
+          <View style={styles.retourBox}>
+            <View style={styles.retourHeader}>
+              <Text style={styles.retourIcon}>🚆</Text>
+              <Text style={styles.retourTitle}>Retour à Hendaye</Text>
+            </View>
+            <Text style={styles.retourContent}>{etape.retourHendaye}</Text>
+          </View>
         </ScrollView>
       </SafeAreaView>
     </Modal>
@@ -325,4 +332,17 @@ const styles = StyleSheet.create({
   infoSectionIcon: { fontSize: 16 },
   infoSectionTitle: { fontSize: 14, fontWeight: '700', color: '#264653' },
   infoSectionContent: { fontSize: 13, color: '#555', lineHeight: 20 },
+  retourBox: {
+    backgroundColor: '#EAF4FB',
+    borderLeftWidth: 4,
+    borderLeftColor: '#264653',
+    borderRadius: 10,
+    padding: 14,
+    gap: 8,
+    marginBottom: 8,
+  },
+  retourHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  retourIcon: { fontSize: 16 },
+  retourTitle: { fontSize: 14, fontWeight: '700', color: '#264653' },
+  retourContent: { fontSize: 13, color: '#2c5f70', lineHeight: 20 },
 });

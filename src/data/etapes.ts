@@ -14,6 +14,7 @@ export interface Etape {
   ravitaillement: string;   // villages et commerces
   eau: string;              // sources, fontaines, cours d'eau
   hebergement: string;      // refuges / gîtes à l'arrivée
+  retourHendaye: string;    // transports pour rentrer à Hendaye
   coordDepart: { lat: number; lng: number };
   coordArrivee: { lat: number; lng: number };
 }
@@ -41,6 +42,8 @@ export const ETAPES: Etape[] = [
       'Fontaine à Hendaye plage (départ). Source au Col des Poiriers. Fontaine au centre de Biriatou.',
     hebergement:
       'Camping Larroueta à Biriatou. Bivouac toléré sur la crête nord (zone herbeuse avant le col). Gîte Le Baya à Hendaye si départ tardif.',
+    retourHendaye:
+      'Bus ATCRB C6 : Biriatou bourg → Hendaye direct (20 min, GRATUIT). Toutes les 1-2h en saison. Arrêt face à la mairie. Taxi : ~15€.',
     coordDepart: { lat: 43.3695, lng: -1.7794 },
     coordArrivee: { lat: 43.3542, lng: -1.7722 },
   },
@@ -67,6 +70,8 @@ export const ETAPES: Etape[] = [
       'Les Trois Fontaines (sources naturelles, eau potable). Ruisseau avant Olhette. Pas d\'eau fiable entre Biriatou et le col d\'Ibardin.',
     hebergement:
       'Gîte d\'étape d\'Olhette. Ferme-auberge Ithurburia (résa recommandée). Camping sauvage possible sur les crêtes (tente légère, vent fréquent).',
+    retourHendaye:
+      'Bus ATCRB C6 depuis Col d\'Ibardin/Urrugne (15 min à pied d\'Olhette) → Hendaye (25 min, GRATUIT). Taxi Olhette → Hendaye : ~22€. Covoiturage depuis le Col d\'Ibardin fréquent en saison (duty-free).',
     coordDepart: { lat: 43.3542, lng: -1.7722 },
     coordArrivee: { lat: 43.3167, lng: -1.6833 },
   },
@@ -93,6 +98,8 @@ export const ETAPES: Etape[] = [
       'Ruisseau à 2 km d\'Olhette. Fontaine au Pas de Lizarrieta. Plusieurs fontaines dans Sare.',
     hebergement:
       'Sare : gîte d\'étape municipal (50 places, douches chaudes), Hôtel Arraya (charme), chambres d\'hôtes nombreuses. Camping Goyetchea.',
+    retourHendaye:
+      'Bus ATCRB C6 : Sare place du village → Saint-Jean-de-Luz → Hendaye (45 min, GRATUIT). Plusieurs départs/jour. Petit Train de la Rhune (touristique) jusqu\'à Ascain puis bus C6. Taxi direct : ~35€.',
     coordDepart: { lat: 43.3167, lng: -1.6833 },
     coordArrivee: { lat: 43.3119, lng: -1.5847 },
   },
@@ -119,6 +126,8 @@ export const ETAPES: Etape[] = [
       'Source au col Meharroste. Fontaine à Ainhoa (place centrale).',
     hebergement:
       'Ainhoa : gîte communal (réservation mairie), Hôtel Ithurria (3 étoiles, gastronomique), plusieurs chambres d\'hôtes. Camping Harazpy.',
+    retourHendaye:
+      'Bus ATCRB C5 : Ainhoa → Espelette → Saint-Jean-de-Luz → Hendaye (1h15, GRATUIT). Ou taxi → Cambo-les-Bains (~25€) puis SNCF → Bayonne (30 min, ~4€) → Hendaye (35 min, ~5€). Taxi direct Ainhoa → Hendaye : ~55€.',
     coordDepart: { lat: 43.3119, lng: -1.5847 },
     coordArrivee: { lat: 43.3069, lng: -1.4972 },
   },
@@ -145,6 +154,8 @@ export const ETAPES: Etape[] = [
       'Ruisseau sous le Col Méhatsé. Source fiable au Col Harrieta. Pas d\'eau sur l\'arête d\'Iparla (prévoir 2L). Nive à Bidarray.',
     hebergement:
       'Bidarray : gîte d\'étape Noblia (accueil chaleureux, repas du soir), camping au bord de la Nive, ferme Ostape (luxe).',
+    retourHendaye:
+      'Bus ATCRB C7 : Bidarray → Cambo-les-Bains (25 min, GRATUIT), puis SNCF Cambo → Bayonne (30 min, ~4€) → Hendaye (35 min, ~5€). Total ~1h45, ~9€. Fréquence bus réduite hors saison. Taxi direct Bidarray → Hendaye : ~70€.',
     coordDepart: { lat: 43.3069, lng: -1.4972 },
     coordArrivee: { lat: 43.2753, lng: -1.3786 },
   },
@@ -171,6 +182,8 @@ export const ETAPES: Etape[] = [
       'Sources sur les crêtes de Baïgura. Ruisseau des Aldudes. Fontaine à Saint-Étienne.',
     hebergement:
       'Saint-Étienne-de-Baïgorry : gîte d\'étape, Hôtel Arcé (piscine, bord de rivière), camping. Possibilité de bivouac sous les crêtes de Baïgura.',
+    retourHendaye:
+      'Bus ATCRB B3 : Saint-Étienne → Saint-Jean-Pied-de-Port (20 min, GRATUIT), puis SNCF → Bayonne (1h15, ~10€) → Hendaye (35 min, ~5€). Total ~2h30, ~15€. Taxi Saint-Étienne → Bayonne : ~90€ puis train.',
     coordDepart: { lat: 43.2753, lng: -1.3786 },
     coordArrivee: { lat: 43.1853, lng: -1.3375 },
   },
@@ -197,6 +210,8 @@ export const ETAPES: Etape[] = [
       'Nive de Béhérobie (purifier). Source au col. Fontaine à Saint-Jean.',
     hebergement:
       'Saint-Jean-Pied-de-Port : large choix (auberges de pèlerins, gîtes, hôtels). Réservation impérative en juillet-août. Gîte Compostelle recommandé.',
+    retourHendaye:
+      'SNCF depuis la gare (centre-ville) : Saint-Jean-Pied-de-Port → Bayonne (1h15, ~10€) → Hendaye (35 min, ~5€). 5-6 trains/jour. Horaires sur sncf-connect.com. Total ~2h, ~15€. Option rapide : taxi → Bayonne (~80€) puis train.',
     coordDepart: { lat: 43.1853, lng: -1.3375 },
     coordArrivee: { lat: 43.1631, lng: -1.2369 },
   },
@@ -223,6 +238,8 @@ export const ETAPES: Etape[] = [
       'Nombreux ruisseaux dans la forêt d\'Orion (eau généralement propre). Fontaine à Estérençuby.',
     hebergement:
       'Estérençuby : Auberge Pedro (institution du GR10, repas copieux, dortoir et chambres). Réservation conseillée. Bivouac possible sur le plateau.',
+    retourHendaye:
+      'Pas de bus direct. Taxi Estérençuby → Saint-Jean-Pied-de-Port (~22€, 20 min), puis SNCF → Bayonne → Hendaye (~2h, ~15€). L\'Auberge Pedro peut appeler un taxi. En été : certains gîtes organisent des navettes entre étapes, renseignez-vous. Total ~2h30, ~37€.',
     coordDepart: { lat: 43.1631, lng: -1.2369 },
     coordArrivee: { lat: 43.0967, lng: -1.1650 },
   },
@@ -249,6 +266,8 @@ export const ETAPES: Etape[] = [
       'Très nombreux ruisseaux dans la Forêt d\'Iraty. Gave d\'Holzarté à Logibar.',
     hebergement:
       'Logibar : Auberge Logibar (gîte et restaurant, accueil depuis 1970). Pas d\'alternative proche : réservation obligatoire.',
+    retourHendaye:
+      'Zone isolée. Taxi Logibar → Mauléon-Licharre (~40€, 45 min), puis Transports 64 ligne 221 → Bayonne (2h, ~2€), puis bus ATCRB → Hendaye (1h, GRATUIT). Total ~4h, ~42€. L\'Auberge Logibar peut appeler un taxi. En saison : navette possible depuis Larrau (se renseigner sur place).',
     coordDepart: { lat: 43.0967, lng: -1.1650 },
     coordArrivee: { lat: 43.0542, lng: -0.9942 },
   },
@@ -275,6 +294,8 @@ export const ETAPES: Etape[] = [
       'Lavoir de Logibar. Ruisseau sous la passerelle. Ensuite RIEN sur le plateau karstique (eau s\'infiltre dans le calcaire) sur 15 km. Prévoir 3L minimum au départ du plateau.',
     hebergement:
       'Arette-PSM : refuge d\'étape de la Pierre-Saint-Martin (géré par le CAF, dortoir). Réservation obligatoire. Bivouac possible sur le plateau (vent fort).',
+    retourHendaye:
+      'Taxi Arette-PSM → Oloron-Sainte-Marie (~42€, 45 min), puis SNCF Oloron → Pau (40 min, ~7€) → Bayonne (1h, ~17€) → Hendaye (35 min, ~5€). Peu de trains en gare d\'Oloron : vérifier horaires SNCF. Total ~5h, ~71€. Covoiturage Blablacar depuis Oloron possible en été.',
     coordDepart: { lat: 43.0542, lng: -0.9942 },
     coordArrivee: { lat: 43.0228, lng: -0.8378 },
   },
@@ -301,6 +322,8 @@ export const ETAPES: Etape[] = [
       'Sources multiples sur les versants. Fontaine à Lescun (place).',
     hebergement:
       'Lescun : gîte d\'étape municipal (très bien équipé), Auberge du Cirque (table d\'hôte excellente), camping Le Lauzart. Bivouac dans les pâturages sous les aiguilles.',
+    retourHendaye:
+      'Taxi Lescun → Bedous (~15€, 15 min), puis SNCF ligne Pau-Canfranc : Bedous → Pau (50 min, ~7€) → Bayonne (1h, ~17€) → Hendaye (35 min, ~5€). Attention : seulement 2-3 départs/jour depuis Bedous, vérifier horaires SNCF la veille. Total ~4h, ~44€.',
     coordDepart: { lat: 43.0228, lng: -0.8378 },
     coordArrivee: { lat: 42.9617, lng: -0.7608 },
   },
