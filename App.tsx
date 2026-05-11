@@ -7,6 +7,7 @@ import MapScreen from './src/screens/MapScreen';
 import EtapesScreen from './src/screens/EtapesScreen';
 import RefugesScreen from './src/screens/RefugesScreen';
 import UrgencesScreen from './src/screens/UrgencesScreen';
+import MeteoScreen from './src/screens/MeteoScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -15,6 +16,7 @@ function TabIcon({ label, focused }: { label: string; focused: boolean }) {
     Carte: '🗺',
     Étapes: '📋',
     Refuges: '🏠',
+    Météo: '🌤',
     Urgences: '🆘',
   };
   return (
@@ -45,6 +47,7 @@ export default function App() {
         <Tab.Screen name="Carte" component={MapScreen} />
         <Tab.Screen name="Étapes" component={EtapesScreen} />
         <Tab.Screen name="Refuges" component={RefugesScreen} />
+        <Tab.Screen name="Météo" component={MeteoScreen} />
         <Tab.Screen name="Urgences" component={UrgencesScreen} />
       </Tab.Navigator>
     </NavigationContainer>

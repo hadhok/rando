@@ -81,9 +81,11 @@ export default function MapScreen() {
         style={{ flex: 1, height: '100%', width: '100%' }}
         scrollWheelZoom
       >
+        {/* IGN Plan V2 – Géoportail open data (sans clé API requise) */}
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.geoportail.gouv.fr">IGN-Géoportail</a>'
+          url="https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}"
+          maxZoom={19}
         />
 
         {/* Tracé GR10 */}

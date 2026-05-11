@@ -11,14 +11,14 @@ import {
 } from 'react-native';
 import { ETAPES, TOTAL_KM, TOTAL_DENIVELE, Etape } from '../data/etapes';
 
-const DIFFICULTE_COLOR: Record<Etape['difficulte'], string> = {
+const DIFFICULTE_COLOR: Record<string, string> = {
   facile: '#2A9D8F',
   moyen: '#E9C46A',
   difficile: '#F4A261',
   tres_difficile: '#E63946',
 };
 
-const DIFFICULTE_LABEL: Record<Etape['difficulte'], string> = {
+const DIFFICULTE_LABEL: Record<string, string> = {
   facile: 'Facile',
   moyen: 'Moyen',
   difficile: 'Difficile',
@@ -31,11 +31,11 @@ function ElevationBar({ pos, neg }: { pos: number; neg: number }) {
     <View style={styles.elevBar}>
       <View style={styles.elevRow}>
         <Text style={styles.elevLabel}>▲ {pos}m</Text>
-        <View style={[styles.elevFill, styles.elevPos, { width: `${(pos / max) * 100}%` }]} />
+        <View style={[styles.elevFill, styles.elevPos, { width: `${(pos / max) * 100}%` as any }]} />
       </View>
       <View style={styles.elevRow}>
         <Text style={styles.elevLabel}>▼ {neg}m</Text>
-        <View style={[styles.elevFill, styles.elevNeg, { width: `${(neg / max) * 100}%` }]} />
+        <View style={[styles.elevFill, styles.elevNeg, { width: `${(neg / max) * 100}%` as any }]} />
       </View>
     </View>
   );
@@ -65,6 +65,18 @@ function EtapeCard({ etape, onPress }: { etape: Etape; onPress: () => void }) {
       </View>
       <ElevationBar pos={etape.denivelePos} neg={etape.deniveleNeg} />
     </TouchableOpacity>
+  );
+}
+
+function InfoSection({ icon, title, content }: { icon: string; title: string; content: string }) {
+  return (
+    <View style={styles.infoSection}>
+      <View style={styles.infoSectionHeader}>
+        <Text style={styles.infoSectionIcon}>{icon}</Text>
+        <Text style={styles.infoSectionTitle}>{title}</Text>
+      </View>
+      <Text style={styles.infoSectionContent}>{content}</Text>
+    </View>
   );
 }
 
@@ -110,6 +122,27 @@ function EtapeDetail({ etape, onClose }: { etape: Etape; onClose: () => void }) 
 
           <Text style={styles.sectionTitle}>Description</Text>
           <Text style={styles.description}>{etape.description}</Text>
+
+          <InfoSection
+            icon="🗺"
+            title="Itinéraire & terrain"
+            content={etape.itineraire}
+          />
+          <InfoSection
+            icon="🛒"
+            title="Ravitaillement"
+            content={etape.ravitaillement}
+          />
+          <InfoSection
+            icon="💧"
+            title="Points d'eau"
+            content={etape.eau}
+          />
+          <InfoSection
+            icon="🏠"
+            title="Hébergement à l'arrivée"
+            content={etape.hebergement}
+          />
         </ScrollView>
       </SafeAreaView>
     </Modal>
@@ -131,7 +164,6 @@ export default function EtapesScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* En-tête global */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>GR10 · Pyrénées</Text>
         <Text style={styles.headerSub}>
@@ -139,7 +171,7 @@ export default function EtapesScreen() {
         </Text>
         <View style={styles.headerNote}>
           <Text style={styles.headerNoteText}>
-            ⚠️ 10 premières étapes affichées (Hendaye → Lescun)
+            ⚠️ 10 étapes affichées (Hendaye → Lescun)
           </Text>
         </View>
       </View>
@@ -189,15 +221,16 @@ const styles = StyleSheet.create({
   },
   cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   numBadge: {
-    width: 34,
+    minWidth: 34,
     height: 34,
     borderRadius: 17,
     backgroundColor: '#264653',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
+    paddingHorizontal: 6,
   },
-  numText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  numText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   cardInfo: { flex: 1 },
   cardNom: { fontSize: 14, fontWeight: '600', color: '#264653' },
   cardSub: { fontSize: 12, color: '#888', marginTop: 2 },
@@ -274,4 +307,22 @@ const styles = StyleSheet.create({
   itineraireText: { fontSize: 15, fontWeight: '600', color: '#264653' },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: '#264653' },
   description: { fontSize: 14, color: '#555', lineHeight: 22 },
+  infoSection: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+    gap: 8,
+  },
+  infoSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  infoSectionIcon: { fontSize: 16 },
+  infoSectionTitle: { fontSize: 14, fontWeight: '700', color: '#264653' },
+  infoSectionContent: { fontSize: 13, color: '#555', lineHeight: 20 },
 });
