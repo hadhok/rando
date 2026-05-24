@@ -6,15 +6,23 @@ import {
   TouchableOpacity,
   Platform,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import MapView, { Polyline, Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import * as Location from 'expo-location';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GR10_TRACE_SAMPLE, GR10_CENTER } from '../data/trace';
 import { ETAPES } from '../data/etapes';
 import { REFUGES } from '../data/refuges';
+import { parseGpx, GpxPoint } from '../utils/gpxParser';
+
+const STORAGE_KEY_GPX = '@gpx_track';
 
 const COLORS = {
   trace: '#E63946',
+  gpx: '#457B9D',
   marker: '#2A9D8F',
   userPos: '#264653',
   bg: '#F1FAEE',
@@ -26,6 +34,9 @@ export default function MapScreen() {
   const [locationError, setLocationError] = useState('');
   const [showRefuges, setShowRefuges] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [gpxTrack, setGpxTrack] = useState<GpxPoint[]>([]);
+  const [gpxName, setGpxName] = useState<string>('');
+  const [gpxLoading, setGpxLoading] = useState(false);
 
   const traceCoords = GR10_TRACE_SAMPLE.map(([lng, lat]) => ({ latitude: lat, longitude: lng }));
 
@@ -46,6 +57,78 @@ export default function MapScreen() {
       setLoading(false);
     })();
   }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem(STORAGE_KEY_GPX);
+        if (stored) {
+          const { points, name } = JSON.parse(stored);
+          setGpxTrack(points);
+          setGpxName(name);
+        }
+      } catch {}
+    })();
+  }, []);
+
+  const importGpx = async () => {
+    try {
+      setGpxLoading(true);
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/gpx+xml', 'text/xml', 'application/xml', '*/*'],
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled || !result.assets?.length) {
+        setGpxLoading(false);
+        return;
+      }
+      const asset = result.assets[0];
+      const content = await FileSystem.readAsStringAsync(asset.uri);
+      const points = parseGpx(content);
+      if (points.length === 0) {
+        Alert.alert('Fichier invalide', 'Aucun point trouvé dans ce fichier GPX.');
+        setGpxLoading(false);
+        return;
+      }
+      setGpxTrack(points);
+      setGpxName(asset.name);
+      await AsyncStorage.setItem(
+        STORAGE_KEY_GPX,
+        JSON.stringify({ points, name: asset.name })
+      );
+      // Center map on imported track
+      const lats = points.map((p) => p.latitude);
+      const lngs = points.map((p) => p.longitude);
+      const minLat = Math.min(...lats);
+      const maxLat = Math.max(...lats);
+      const minLng = Math.min(...lngs);
+      const maxLng = Math.max(...lngs);
+      mapRef.current?.animateToRegion({
+        latitude: (minLat + maxLat) / 2,
+        longitude: (minLng + maxLng) / 2,
+        latitudeDelta: (maxLat - minLat) * 1.4 || 0.1,
+        longitudeDelta: (maxLng - minLng) * 1.4 || 0.1,
+      });
+    } catch {
+      Alert.alert('Erreur', 'Impossible de lire le fichier GPX.');
+    }
+    setGpxLoading(false);
+  };
+
+  const clearGpx = () => {
+    Alert.alert('Supprimer l\'itinéraire', 'Voulez-vous supprimer l\'itinéraire importé ?', [
+      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Supprimer',
+        style: 'destructive',
+        onPress: async () => {
+          setGpxTrack([]);
+          setGpxName('');
+          await AsyncStorage.removeItem(STORAGE_KEY_GPX);
+        },
+      },
+    ]);
+  };
 
   const centerOnUser = () => {
     if (!userLocation || !mapRef.current) return;
@@ -112,6 +195,15 @@ export default function MapScreen() {
             />
           ))}
 
+        {/* Itinéraire GPX importé */}
+        {gpxTrack.length > 0 && (
+          <Polyline
+            coordinates={gpxTrack}
+            strokeColor={COLORS.gpx}
+            strokeWidth={3}
+          />
+        )}
+
         {/* Position utilisateur */}
         {userLocation && (
           <Marker
@@ -128,6 +220,14 @@ export default function MapScreen() {
           <View style={[styles.legendDot, { backgroundColor: COLORS.trace }]} />
           <Text style={styles.legendText}>Tracé GR10</Text>
         </View>
+        {gpxTrack.length > 0 && (
+          <View style={styles.legendRow}>
+            <View style={[styles.legendDot, { backgroundColor: COLORS.gpx }]} />
+            <Text style={styles.legendText} numberOfLines={1}>
+              {gpxName || 'Mon itinéraire'}
+            </Text>
+          </View>
+        )}
         <View style={styles.legendRow}>
           <View style={[styles.legendDot, { backgroundColor: COLORS.marker }]} />
           <Text style={styles.legendText}>Étapes</Text>
@@ -152,6 +252,20 @@ export default function MapScreen() {
         {userLocation && (
           <TouchableOpacity style={[styles.btn, styles.btnAccent]} onPress={centerOnUser}>
             <Text style={[styles.btnText, { color: '#fff' }]}>📍 Ma position</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          style={[styles.btn, styles.btnGpx, gpxLoading && styles.btnDisabled]}
+          onPress={importGpx}
+          disabled={gpxLoading}
+        >
+          <Text style={[styles.btnText, { color: '#fff' }]}>
+            {gpxLoading ? '⏳ Chargement…' : '📂 Importer GPX'}
+          </Text>
+        </TouchableOpacity>
+        {gpxTrack.length > 0 && (
+          <TouchableOpacity style={[styles.btn, styles.btnClearGpx]} onPress={clearGpx}>
+            <Text style={[styles.btnText, { color: '#fff' }]}>✕ Supprimer GPX</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -208,6 +322,9 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   btnAccent: { backgroundColor: '#E63946' },
+  btnGpx: { backgroundColor: '#457B9D' },
+  btnClearGpx: { backgroundColor: '#888' },
+  btnDisabled: { opacity: 0.6 },
   btnText: { fontSize: 13, color: '#264653', fontWeight: '600' },
   loadingOverlay: {
     position: 'absolute',
