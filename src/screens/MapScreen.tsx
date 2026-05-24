@@ -4,14 +4,12 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Platform,
   ActivityIndicator,
   Alert,
 } from 'react-native';
 import MapView, { Polyline, Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import * as Location from 'expo-location';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GR10_TRACE_SAMPLE, GR10_CENTER } from '../data/trace';
 import { ETAPES } from '../data/etapes';
@@ -83,7 +81,8 @@ export default function MapScreen() {
         return;
       }
       const asset = result.assets[0];
-      const content = await FileSystem.readAsStringAsync(asset.uri);
+      const response = await fetch(asset.uri);
+      const content = await response.text();
       const points = parseGpx(content);
       if (points.length === 0) {
         Alert.alert('Fichier invalide', 'Aucun point trouvé dans ce fichier GPX.');
