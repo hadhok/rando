@@ -12,6 +12,7 @@ import {
   clearTileCache,
   getTileCacheInfo,
 } from '../utils/tileCache';
+import { parseGpx, GpxTrack } from '../utils/gpxParser';
 
 function useLeafletCSS() {
   useEffect(() => {
@@ -44,7 +45,17 @@ const bivouacIcon = new L.DivIcon({
   iconSize: [24, 24], iconAnchor: [12, 12], popupAnchor: [0, -14], className: '',
 });
 
-const COLORS = { trace: '#E63946', bg: '#F1FAEE' };
+const COLORS = { trace: '#E63946', bg: '#F1FAEE', gpx: '#8338EC' };
+
+function FitBoundsToGpx({ points }: { points: Array<[number, number]> | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!points || points.length === 0) return;
+    const bounds = L.latLngBounds(points);
+    map.fitBounds(bounds, { padding: [40, 40] });
+  }, [points, map]);
+  return null;
+}
 
 function LocateButton({ userLocation }: { userLocation: { lat: number; lng: number } | null }) {
   const map = useMap();
@@ -249,6 +260,9 @@ export default function MapScreen() {
   const [showBivouacs, setShowBivouacs] = useState(true);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [showDlPanel, setShowDlPanel] = useState(false);
+  const [gpxTrack, setGpxTrack] = useState<GpxTrack | null>(null);
+  const [gpxError, setGpxError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const setOffline = () => setIsOffline(true);
@@ -258,6 +272,38 @@ export default function MapScreen() {
     return () => {
       window.removeEventListener('offline', setOffline);
       window.removeEventListener('online', setOnline);
+    };
+  }, []);
+
+  useEffect(() => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.gpx,application/gpx+xml,text/xml';
+    input.style.display = 'none';
+    const handleChange = (e: Event) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const content = ev.target?.result as string;
+        const track = parseGpx(content);
+        if (track) {
+          setGpxTrack(track);
+          setGpxError('');
+        } else {
+          setGpxError('Fichier GPX invalide ou vide');
+          setTimeout(() => setGpxError(''), 3000);
+        }
+      };
+      reader.readAsText(file);
+      (e.target as HTMLInputElement).value = '';
+    };
+    input.addEventListener('change', handleChange);
+    document.body.appendChild(input);
+    fileInputRef.current = input;
+    return () => {
+      input.removeEventListener('change', handleChange);
+      if (document.body.contains(input)) document.body.removeChild(input);
     };
   }, []);
 
@@ -289,6 +335,19 @@ export default function MapScreen() {
           maxZoom={19}
         />
         <Polyline positions={traceCoords} color={COLORS.trace} weight={3} />
+
+        {gpxTrack && (
+          <>
+            <Polyline
+              positions={gpxTrack.points}
+              color={COLORS.gpx}
+              weight={3}
+              dashArray="8,5"
+              opacity={0.9}
+            />
+            <FitBoundsToGpx points={gpxTrack.points} />
+          </>
+        )}
 
         {ETAPES.map((etape) => (
           <Marker key={`etape-${etape.id}`} position={[etape.coordDepart.lat, etape.coordDepart.lng]} icon={etapeIcon}>
@@ -347,6 +406,14 @@ export default function MapScreen() {
           <Text style={styles.legendEmoji}>⛺</Text>
           <Text style={styles.legendText}>Bivouacs</Text>
         </View>
+        {gpxTrack && (
+          <View style={styles.legendRow}>
+            <View style={[styles.legendDot, { backgroundColor: COLORS.gpx }]} />
+            <Text style={[styles.legendText, { color: COLORS.gpx, fontWeight: '600' }]}>
+              GPX importé
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Contrôles */}
@@ -360,6 +427,21 @@ export default function MapScreen() {
         <TouchableOpacity style={[styles.btn, styles.btnDownload]} onPress={() => setShowDlPanel((v) => !v)}>
           <Text style={styles.btnText}>📥 Carte offline</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.btn, gpxTrack ? styles.btnGpxActive : styles.btnGpx]}
+          onPress={() => fileInputRef.current?.click()}
+        >
+          <Text style={[styles.btnText, gpxTrack && { color: COLORS.gpx }]}>📂 Importer GPX</Text>
+        </TouchableOpacity>
+        {gpxTrack && (
+          <View style={styles.gpxInfo}>
+            <Text style={styles.gpxInfoName} numberOfLines={1}>{gpxTrack.name}</Text>
+            <Text style={styles.gpxInfoPoints}>{gpxTrack.points.length} pts</Text>
+            <TouchableOpacity onPress={() => setGpxTrack(null)}>
+              <Text style={styles.gpxClearBtn}>✕ Supprimer</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       {/* Panneau de téléchargement */}
@@ -374,6 +456,12 @@ export default function MapScreen() {
       {locationError !== '' && (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>{locationError}</Text>
+        </View>
+      )}
+
+      {gpxError !== '' && (
+        <View style={styles.gpxErrorBanner}>
+          <Text style={styles.gpxErrorText}>{gpxError}</Text>
         </View>
       )}
     </View>
@@ -404,6 +492,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFB703', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8,
   },
   errorText: { fontSize: 12, color: '#264653', fontWeight: '600' },
+  btnGpx: { borderWidth: 1, borderColor: '#8338EC' },
+  btnGpxActive: { borderWidth: 1.5, borderColor: '#8338EC', backgroundColor: '#F5F0FF' },
+  gpxInfo: {
+    backgroundColor: 'rgba(255,255,255,0.97)', borderRadius: 8,
+    paddingHorizontal: 10, paddingVertical: 8, gap: 3,
+    borderLeftWidth: 3, borderLeftColor: '#8338EC',
+  },
+  gpxInfoName: { fontSize: 12, color: '#264653', fontWeight: '600', maxWidth: 140 },
+  gpxInfoPoints: { fontSize: 11, color: '#888' },
+  gpxClearBtn: { fontSize: 11, color: '#E63946', fontWeight: '600' },
+  gpxErrorBanner: {
+    position: 'absolute', bottom: 60, left: 12, zIndex: 1000,
+    backgroundColor: '#8338EC', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8,
+  },
+  gpxErrorText: { fontSize: 12, color: '#fff', fontWeight: '600' },
 });
 
 const dlStyles = StyleSheet.create({

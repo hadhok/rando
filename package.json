@@ -14,6 +14,8 @@
     "@react-navigation/bottom-tabs": "^7.15.13",
     "@react-navigation/native": "^7.2.4",
     "expo": "~54.0.33",
+    "expo-document-picker": "^13.0.3",
+    "expo-file-system": "^18.0.12",
     "expo-location": "^55.1.9",
     "expo-status-bar": "~3.0.9",
     "react": "19.1.0",
