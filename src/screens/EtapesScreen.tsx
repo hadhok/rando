@@ -197,7 +197,7 @@ function GpxWayptRow({ wpt, isFirst, isLast }: { wpt: GpxWaypoint; isFirst: bool
 }
 
 function GpxItinerary({ track }: { track: GpxTrack }) {
-  const { waypoints } = track;
+  const waypoints = track.waypoints ?? [];
   const hasWaypoints = waypoints.length > 0;
   const last = hasWaypoints ? waypoints[waypoints.length - 1] : null;
   return (
@@ -347,6 +347,8 @@ function HtmlItineraireView({ itin }: { itin: Itineraire }) {
 
 function useHtmlImporter(onContent: (content: string) => void) {
   const inputRef = useRef<any>(null);
+  const onContentRef = useRef(onContent);
+  onContentRef.current = onContent;
 
   useEffect(() => {
     if (Platform.OS !== 'web') return;
@@ -360,7 +362,7 @@ function useHtmlImporter(onContent: (content: string) => void) {
       const reader = new FileReader();
       reader.onload = (ev) => {
         const content = ev.target?.result as string;
-        if (content) onContent(content);
+        if (content) onContentRef.current(content);
       };
       reader.readAsText(file);
       (e.target as HTMLInputElement).value = '';
@@ -372,7 +374,7 @@ function useHtmlImporter(onContent: (content: string) => void) {
       input.removeEventListener('change', handler);
       if (document.body.contains(input)) document.body.removeChild(input);
     };
-  }, [onContent]);
+  }, []); // runs once only — latest callback accessed via ref
 
   const trigger = async () => {
     if (Platform.OS === 'web') {

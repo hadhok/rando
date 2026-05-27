@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GpxTrack } from '../utils/gpxParser';
 import { Itineraire } from '../utils/itineraireParser';
 
-const KEY_GPX = 'gpx_track_v1';
+const KEY_GPX = 'gpx_track_v2'; // v2: includes waypoints field
 const KEY_IT  = 'itineraire_v1';
 
 interface GpxContextValue {
