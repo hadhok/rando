@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Platform, Text } from 'react-native';
+import { GpxProvider } from './src/context/GpxContext';
 
 import MapScreen from './src/screens/MapScreen';
 import EtapesScreen from './src/screens/EtapesScreen';
@@ -34,6 +35,7 @@ export default function App() {
   }, []);
 
   return (
+    <GpxProvider>
     <NavigationContainer>
       <Tab.Navigator
         screenOptions={({ route }) => ({
@@ -60,5 +62,6 @@ export default function App() {
         <Tab.Screen name="Urgences" component={UrgencesScreen} />
       </Tab.Navigator>
     </NavigationContainer>
+    </GpxProvider>
   );
 }

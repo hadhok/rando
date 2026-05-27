@@ -15,7 +15,8 @@ import * as FileSystem from 'expo-file-system';
 import { GR10_TRACE_SAMPLE, GR10_CENTER } from '../data/trace';
 import { ETAPES } from '../data/etapes';
 import { REFUGES } from '../data/refuges';
-import { parseGpx, GpxTrack } from '../utils/gpxParser';
+import { parseGpx } from '../utils/gpxParser';
+import { useGpx } from '../context/GpxContext';
 
 const COLORS = {
   trace: '#E63946',
@@ -31,7 +32,7 @@ export default function MapScreen() {
   const [locationError, setLocationError] = useState('');
   const [showRefuges, setShowRefuges] = useState(true);
   const [loading, setLoading] = useState(true);
-  const [gpxTrack, setGpxTrack] = useState<GpxTrack | null>(null);
+  const { gpxTrack, setGpxTrack } = useGpx();
 
   const traceCoords = GR10_TRACE_SAMPLE.map(([lng, lat]) => ({ latitude: lat, longitude: lng }));
 

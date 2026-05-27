@@ -12,7 +12,8 @@ import {
   clearTileCache,
   getTileCacheInfo,
 } from '../utils/tileCache';
-import { parseGpx, GpxTrack } from '../utils/gpxParser';
+import { parseGpx } from '../utils/gpxParser';
+import { useGpx } from '../context/GpxContext';
 
 function useLeafletCSS() {
   useEffect(() => {
@@ -260,7 +261,7 @@ export default function MapScreen() {
   const [showBivouacs, setShowBivouacs] = useState(true);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [showDlPanel, setShowDlPanel] = useState(false);
-  const [gpxTrack, setGpxTrack] = useState<GpxTrack | null>(null);
+  const { gpxTrack, setGpxTrack } = useGpx();
   const [gpxError, setGpxError] = useState('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 

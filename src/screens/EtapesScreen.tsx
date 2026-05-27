@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -10,6 +10,10 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { ETAPES, TOTAL_KM, TOTAL_DENIVELE, Etape } from '../data/etapes';
+import { useGpx } from '../context/GpxContext';
+import { GpxWaypoint, GpxBadge, GpxTrack } from '../utils/gpxParser';
+
+// ─── GR10 helpers ─────────────────────────────────────────────────────────────
 
 const DIFFICULTE_COLOR: Record<string, string> = {
   facile: '#2A9D8F',
@@ -54,12 +58,7 @@ function EtapeCard({ etape, onPress }: { etape: Etape; onPress: () => void }) {
             {etape.distance} km · {etape.dureeEstimee}h
           </Text>
         </View>
-        <View
-          style={[
-            styles.diffBadge,
-            { backgroundColor: DIFFICULTE_COLOR[etape.difficulte] },
-          ]}
-        >
+        <View style={[styles.diffBadge, { backgroundColor: DIFFICULTE_COLOR[etape.difficulte] }]}>
           <Text style={styles.diffText}>{DIFFICULTE_LABEL[etape.difficulte]}</Text>
         </View>
       </View>
@@ -92,22 +91,15 @@ function EtapeDetail({ etape, onClose }: { etape: Etape; onClose: () => void }) 
         </View>
         <ScrollView contentContainerStyle={styles.modalContent}>
           <Text style={styles.modalNom}>{etape.nom}</Text>
-          <View
-            style={[
-              styles.diffBadgeLarge,
-              { backgroundColor: DIFFICULTE_COLOR[etape.difficulte] },
-            ]}
-          >
+          <View style={[styles.diffBadgeLarge, { backgroundColor: DIFFICULTE_COLOR[etape.difficulte] }]}>
             <Text style={styles.diffTextLarge}>{DIFFICULTE_LABEL[etape.difficulte]}</Text>
           </View>
-
           <View style={styles.statsGrid}>
             <StatBox label="Distance" value={`${etape.distance} km`} icon="📏" />
             <StatBox label="Durée estimée" value={`${etape.dureeEstimee}h`} icon="⏱" />
             <StatBox label="Dénivelé +" value={`+${etape.denivelePos} m`} icon="▲" />
             <StatBox label="Dénivelé -" value={`-${etape.deniveleNeg} m`} icon="▼" />
           </View>
-
           <View style={styles.itineraireBox}>
             <View style={styles.itineraireRow}>
               <View style={[styles.dot, { backgroundColor: '#2A9D8F' }]} />
@@ -119,30 +111,12 @@ function EtapeDetail({ etape, onClose }: { etape: Etape; onClose: () => void }) 
               <Text style={styles.itineraireText}>{etape.arrivee}</Text>
             </View>
           </View>
-
           <Text style={styles.sectionTitle}>Description</Text>
           <Text style={styles.description}>{etape.description}</Text>
-
-          <InfoSection
-            icon="🗺"
-            title="Itinéraire & terrain"
-            content={etape.itineraire}
-          />
-          <InfoSection
-            icon="🛒"
-            title="Ravitaillement"
-            content={etape.ravitaillement}
-          />
-          <InfoSection
-            icon="💧"
-            title="Points d'eau"
-            content={etape.eau}
-          />
-          <InfoSection
-            icon="🏠"
-            title="Hébergement à l'arrivée"
-            content={etape.hebergement}
-          />
+          <InfoSection icon="🗺" title="Itinéraire & terrain" content={etape.itineraire} />
+          <InfoSection icon="🛒" title="Ravitaillement" content={etape.ravitaillement} />
+          <InfoSection icon="💧" title="Points d'eau" content={etape.eau} />
+          <InfoSection icon="🏠" title="Hébergement à l'arrivée" content={etape.hebergement} />
           <View style={styles.retourBox}>
             <View style={styles.retourHeader}>
               <Text style={styles.retourIcon}>🚆</Text>
@@ -166,8 +140,176 @@ function StatBox({ label, value, icon }: { label: string; value: string; icon: s
   );
 }
 
+// ─── GPX itinerary helpers ────────────────────────────────────────────────────
+
+const BADGE_CFG: Record<GpxBadge, { label: string; bg: string; color: string }> = {
+  eau:     { label: '💧 eau',     bg: '#DBEAFE', color: '#1E40AF' },
+  bivouac: { label: '🏕 bivouac', bg: '#FEF3C7', color: '#92400E' },
+  refuge:  { label: '🏠 refuge',  bg: '#EDE9FE', color: '#5B21B6' },
+  parking: { label: '🅿️ départ',  bg: '#F3F4F6', color: '#6B7280' },
+  sommet:  { label: '⛰ col',     bg: '#D1FAE5', color: '#065F46' },
+};
+
+const DEPART_H = 9; // 09:00 default
+
+function fmtArrival(cumH: number): string {
+  const tot = Math.round(DEPART_H * 60 + cumH * 60);
+  return `${String(Math.floor(tot / 60)).padStart(2, '0')}h${String(tot % 60).padStart(2, '0')}`;
+}
+
+function fmtDur(h: number): string {
+  const m = Math.round(h * 60);
+  if (m === 0) return '—';
+  const hh = Math.floor(m / 60);
+  const mm = m % 60;
+  if (hh === 0) return `${mm}min`;
+  return mm === 0 ? `${hh}h` : `${hh}h${String(mm).padStart(2, '0')}`;
+}
+
+function WayptRow({ wpt, isFirst, isLast }: { wpt: GpxWaypoint; isFirst: boolean; isLast: boolean }) {
+  const arrival = fmtArrival(wpt.cumTimeH);
+  return (
+    <View style={[gpx.row, isLast && gpx.rowLast]}>
+      {/* Vertical timeline line */}
+      <View style={gpx.timelineCol}>
+        <View style={[gpx.dot, isFirst ? gpx.dotStart : isLast ? gpx.dotEnd : gpx.dotMid]} />
+        {!isLast && <View style={gpx.line} />}
+      </View>
+
+      <View style={gpx.rowContent}>
+        {/* Name + arrival */}
+        <View style={gpx.rowTop}>
+          <Text style={[gpx.name, (isFirst || isLast) && gpx.nameBold]} numberOfLines={2}>
+            {wpt.name}
+          </Text>
+          <Text style={[gpx.time, isFirst && gpx.timeDepart]}>
+            {isFirst ? `dep. ${arrival}` : arrival}
+          </Text>
+        </View>
+
+        {/* Badges */}
+        {wpt.badges.length > 0 && (
+          <View style={gpx.badges}>
+            {wpt.badges.map((b) => (
+              <View key={b} style={[gpx.badge, { backgroundColor: BADGE_CFG[b].bg }]}>
+                <Text style={[gpx.badgeTxt, { color: BADGE_CFG[b].color }]}>
+                  {BADGE_CFG[b].label}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Stats */}
+        <View style={gpx.stats}>
+          {!isFirst && (
+            <Text style={gpx.statTxt}>
+              <Text style={gpx.statLbl}>dist </Text>
+              {wpt.distCumKm.toFixed(1)} km
+            </Text>
+          )}
+          {wpt.ele != null && (
+            <Text style={gpx.statTxt}>
+              <Text style={gpx.statLbl}>alt </Text>
+              {Math.round(wpt.ele)} m
+            </Text>
+          )}
+          {!isFirst && (
+            <>
+              <Text style={[gpx.statTxt, gpx.dp]}>▲{Math.round(wpt.dpCumM)} m</Text>
+              <Text style={[gpx.statTxt, gpx.dm]}>▼{Math.round(wpt.dmCumM)} m</Text>
+              <Text style={gpx.statTxt}>
+                <Text style={gpx.statLbl}>seg </Text>+{fmtDur(wpt.segTimeH)}
+              </Text>
+              <Text style={gpx.statTxt}>
+                <Text style={gpx.statLbl}>cum </Text>{fmtDur(wpt.cumTimeH)}
+              </Text>
+            </>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function GpxItinerary({ track }: { track: GpxTrack }) {
+  const { waypoints } = track;
+  const hasWaypoints = waypoints.length > 0;
+  const last = hasWaypoints ? waypoints[waypoints.length - 1] : null;
+
+  return (
+    <ScrollView contentContainerStyle={gpx.container} showsVerticalScrollIndicator={false}>
+      {/* Header */}
+      <View style={gpx.header}>
+        <Text style={gpx.headerTitle}>{track.name}</Text>
+        {last && (
+          <View style={gpx.headerStats}>
+            <View style={gpx.chip}>
+              <Text style={gpx.chipVal}>{last.distCumKm.toFixed(1)} km</Text>
+              <Text style={gpx.chipLbl}>distance</Text>
+            </View>
+            <View style={gpx.chip}>
+              <Text style={[gpx.chipVal, { color: '#0F6E56' }]}>+{Math.round(last.dpCumM)} m</Text>
+              <Text style={gpx.chipLbl}>dénivelé +</Text>
+            </View>
+            <View style={gpx.chip}>
+              <Text style={[gpx.chipVal, { color: '#993C1D' }]}>-{Math.round(last.dmCumM)} m</Text>
+              <Text style={gpx.chipLbl}>dénivelé -</Text>
+            </View>
+            <View style={gpx.chip}>
+              <Text style={gpx.chipVal}>{fmtDur(last.cumTimeH)}</Text>
+              <Text style={gpx.chipLbl}>durée</Text>
+            </View>
+          </View>
+        )}
+        <Text style={gpx.naismith}>
+          Naismith · 4 km/h plat · +300 m/h montée · -500 m/h descente · départ 09h00
+        </Text>
+      </View>
+
+      {/* Waypoints */}
+      {hasWaypoints ? (
+        <View style={gpx.list}>
+          {waypoints.map((wpt, i) => (
+            <WayptRow
+              key={i}
+              wpt={wpt}
+              isFirst={i === 0}
+              isLast={i === waypoints.length - 1}
+            />
+          ))}
+        </View>
+      ) : (
+        <View style={gpx.emptyBox}>
+          <Text style={gpx.emptyIcon}>📍</Text>
+          <Text style={gpx.emptyTitle}>Pas d'étapes dans ce fichier</Text>
+          <Text style={gpx.emptySub}>
+            Ce GPX contient uniquement le tracé.{'\n'}
+            Ajoutez des waypoints ou des points de route dans votre application GPS.
+          </Text>
+          {track.points.length > 0 && (
+            <Text style={gpx.emptyPts}>{track.points.length} points de trace importés</Text>
+          )}
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+
+// ─── Main screen ──────────────────────────────────────────────────────────────
+
 export default function EtapesScreen() {
   const [selected, setSelected] = useState<Etape | null>(null);
+  const [activeTab, setActiveTab] = useState<'gr10' | 'gpx'>('gr10');
+  const { gpxTrack, setGpxTrack } = useGpx();
+
+  useEffect(() => {
+    if (!gpxTrack) {
+      setActiveTab('gr10');
+    } else {
+      setActiveTab('gpx');
+    }
+  }, [gpxTrack]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -183,15 +325,47 @@ export default function EtapesScreen() {
         </View>
       </View>
 
-      <FlatList
-        data={ETAPES}
-        keyExtractor={(item) => String(item.id)}
-        renderItem={({ item }) => (
-          <EtapeCard etape={item} onPress={() => setSelected(item)} />
-        )}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-      />
+      {/* Tab switcher — shown only when a GPX is imported */}
+      {gpxTrack && (
+        <View style={styles.tabRow}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'gr10' && styles.tabActive]}
+            onPress={() => setActiveTab('gr10')}
+          >
+            <Text style={[styles.tabTxt, activeTab === 'gr10' && styles.tabTxtActive]}>
+              GR10
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'gpx' && styles.tabActiveGpx]}
+            onPress={() => setActiveTab('gpx')}
+          >
+            <Text
+              style={[styles.tabTxt, activeTab === 'gpx' && styles.tabTxtGpx]}
+              numberOfLines={1}
+            >
+              🟣 {gpxTrack.name}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.tabClear} onPress={() => setGpxTrack(null)}>
+            <Text style={styles.tabClearTxt}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {activeTab === 'gr10' || !gpxTrack ? (
+        <FlatList
+          data={ETAPES}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={({ item }) => (
+            <EtapeCard etape={item} onPress={() => setSelected(item)} />
+          )}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+        />
+      ) : (
+        <GpxItinerary track={gpxTrack} />
+      )}
 
       {selected && (
         <EtapeDetail etape={selected} onClose={() => setSelected(null)} />
@@ -199,6 +373,8 @@ export default function EtapesScreen() {
     </SafeAreaView>
   );
 }
+
+// ─── Styles GR10 (unchanged) ──────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F1FAEE' },
@@ -216,6 +392,43 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   headerNoteText: { color: '#E9C46A', fontSize: 12 },
+  tabRow: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 0,
+    gap: 6,
+    alignItems: 'flex-end',
+  },
+  tab: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderBottomWidth: 3,
+    borderBottomColor: 'transparent',
+    maxWidth: 180,
+  },
+  tabActive: {
+    borderBottomColor: '#264653',
+    backgroundColor: '#F1FAEE',
+  },
+  tabActiveGpx: {
+    borderBottomColor: '#8338EC',
+    backgroundColor: '#F5F0FF',
+  },
+  tabTxt: { fontSize: 13, fontWeight: '600', color: '#999' },
+  tabTxtActive: { color: '#264653' },
+  tabTxtGpx: { color: '#8338EC' },
+  tabClear: {
+    marginLeft: 'auto' as any,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    alignSelf: 'center',
+  },
+  tabClearTxt: { fontSize: 14, color: '#bbb' },
   list: { padding: 12, gap: 10 },
   card: {
     backgroundColor: '#fff',
@@ -241,11 +454,7 @@ const styles = StyleSheet.create({
   cardInfo: { flex: 1 },
   cardNom: { fontSize: 14, fontWeight: '600', color: '#264653' },
   cardSub: { fontSize: 12, color: '#888', marginTop: 2 },
-  diffBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-  },
+  diffBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12 },
   diffText: { fontSize: 11, color: '#fff', fontWeight: '600' },
   elevBar: { gap: 4 },
   elevRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -266,18 +475,9 @@ const styles = StyleSheet.create({
   closeBtnText: { color: '#A8DADC', fontSize: 18 },
   modalContent: { padding: 20, gap: 16 },
   modalNom: { fontSize: 22, fontWeight: '700', color: '#264653' },
-  diffBadgeLarge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 14,
-  },
+  diffBadgeLarge: { alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 14 },
   diffTextLarge: { fontSize: 13, color: '#fff', fontWeight: '700' },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   statBox: {
     flex: 1,
     minWidth: 120,
@@ -324,11 +524,7 @@ const styles = StyleSheet.create({
     elevation: 1,
     gap: 8,
   },
-  infoSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
+  infoSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   infoSectionIcon: { fontSize: 16 },
   infoSectionTitle: { fontSize: 14, fontWeight: '700', color: '#264653' },
   infoSectionContent: { fontSize: 13, color: '#555', lineHeight: 20 },
@@ -345,4 +541,133 @@ const styles = StyleSheet.create({
   retourIcon: { fontSize: 16 },
   retourTitle: { fontSize: 14, fontWeight: '700', color: '#264653' },
   retourContent: { fontSize: 13, color: '#2c5f70', lineHeight: 20 },
+});
+
+// ─── Styles GPX ───────────────────────────────────────────────────────────────
+
+const gpx = StyleSheet.create({
+  container: { padding: 12, gap: 0, paddingBottom: 32 },
+  header: {
+    backgroundColor: '#F5F0FF',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#8338EC',
+    gap: 10,
+  },
+  headerTitle: { fontSize: 15, fontWeight: '700', color: '#3d1c7a' },
+  headerStats: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    alignItems: 'center',
+    minWidth: 70,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  chipVal: { fontSize: 14, fontWeight: '700', color: '#264653' },
+  chipLbl: { fontSize: 10, color: '#888', marginTop: 1 },
+  naismith: { fontSize: 11, color: '#7c5cbf', fontStyle: 'italic', lineHeight: 16 },
+  list: { gap: 0 },
+  row: {
+    flexDirection: 'row',
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+  },
+  rowLast: { paddingBottom: 0 },
+  timelineCol: {
+    width: 24,
+    alignItems: 'center',
+    paddingTop: 4,
+  },
+  dot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    zIndex: 1,
+  },
+  dotStart: { backgroundColor: '#2A9D8F', borderWidth: 2, borderColor: '#fff', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
+  dotMid: { backgroundColor: '#8338EC', borderWidth: 2, borderColor: '#fff' },
+  dotEnd: { backgroundColor: '#E63946', borderWidth: 2, borderColor: '#fff', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
+  line: {
+    width: 2,
+    flex: 1,
+    backgroundColor: '#ddd',
+    marginTop: 2,
+    minHeight: 40,
+  },
+  rowContent: {
+    flex: 1,
+    paddingLeft: 10,
+    paddingBottom: 16,
+    gap: 4,
+  },
+  rowTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  name: {
+    flex: 1,
+    fontSize: 13,
+    color: '#264653',
+    lineHeight: 18,
+  },
+  nameBold: { fontWeight: '700', fontSize: 14 },
+  time: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#8338EC',
+    minWidth: 52,
+    textAlign: 'right',
+  },
+  timeDepart: { color: '#2A9D8F' },
+  badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  badge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  badgeTxt: { fontSize: 10, fontWeight: '600' },
+  stats: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 2,
+  },
+  statTxt: {
+    fontSize: 11,
+    color: '#555',
+    backgroundColor: '#F5F5F5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  statLbl: { color: '#999', fontSize: 10 },
+  dp: { color: '#0F6E56', backgroundColor: '#F0FDF4' },
+  dm: { color: '#993C1D', backgroundColor: '#FFF7F0' },
+  emptyBox: {
+    alignItems: 'center',
+    padding: 40,
+    gap: 10,
+  },
+  emptyIcon: { fontSize: 40 },
+  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#264653', textAlign: 'center' },
+  emptySub: { fontSize: 13, color: '#888', textAlign: 'center', lineHeight: 20 },
+  emptyPts: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#8338EC',
+    backgroundColor: '#F5F0FF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    fontWeight: '600',
+  },
 });
