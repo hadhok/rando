@@ -17,6 +17,7 @@ import { ETAPES } from '../data/etapes';
 import { REFUGES } from '../data/refuges';
 import { parseGpx } from '../utils/gpxParser';
 import { useGpx } from '../context/GpxContext';
+import SyncModal from '../components/SyncModal';
 
 const COLORS = {
   trace: '#E63946',
@@ -32,7 +33,8 @@ export default function MapScreen() {
   const [locationError, setLocationError] = useState('');
   const [showRefuges, setShowRefuges] = useState(true);
   const [loading, setLoading] = useState(true);
-  const { gpxTrack, setGpxTrack } = useGpx();
+  const [showSync, setShowSync] = useState(false);
+  const { gpxTrack, setGpxTrack, syncCode } = useGpx();
 
   const traceCoords = GR10_TRACE_SAMPLE.map(([lng, lat]) => ({ latitude: lat, longitude: lng }));
 
@@ -226,7 +228,12 @@ export default function MapScreen() {
             </TouchableOpacity>
           </View>
         )}
+        <TouchableOpacity style={styles.btn} onPress={() => setShowSync(true)}>
+          <Text style={styles.btnText}>🔗 {syncCode || '…'}</Text>
+        </TouchableOpacity>
       </View>
+
+      <SyncModal visible={showSync} onClose={() => setShowSync(false)} />
 
       {loading && (
         <View style={styles.loadingOverlay}>

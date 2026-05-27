@@ -10,6 +10,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { BIVOUACS, Bivouac } from '../data/bivouacs';
+import { useGpx, isNearTrace } from '../context/GpxContext';
 
 const DIFF_COLOR: Record<Bivouac['difficulteAcces'], string> = {
   facile: '#2A9D8F',
@@ -126,9 +127,12 @@ function BivouacDetail({ biv, onClose }: { biv: Bivouac; onClose: () => void }) 
 export default function BivouacsScreen() {
   const [selected, setSelected] = useState<Bivouac | null>(null);
   const [filter, setFilter] = useState<Filter>('tous');
+  const { traceBbox } = useGpx();
 
-  const filtered =
-    filter === 'tous' ? BIVOUACS : BIVOUACS.filter((b) => b.difficulteAcces === filter);
+  const byDiff = filter === 'tous' ? BIVOUACS : BIVOUACS.filter((b) => b.difficulteAcces === filter);
+  const filtered = traceBbox
+    ? byDiff.filter((b) => isNearTrace(b.coordonnees.lat, b.coordonnees.lng, traceBbox))
+    : byDiff;
 
   const filters: { key: Filter; label: string }[] = [
     { key: 'tous', label: 'Tous' },
@@ -141,8 +145,13 @@ export default function BivouacsScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Bivouacs GR10</Text>
-        <Text style={styles.headerSub}>{filtered.length} spots sélectionnés · Gratuit</Text>
+        <Text style={styles.headerSub}>{filtered.length} spots sélectionnés · Gratuit{traceBbox ? ' · filtrés par trace' : ''}</Text>
       </View>
+      {traceBbox && (
+        <View style={styles.traceBanner}>
+          <Text style={styles.traceBannerText}>🟣 Affichage limité aux bivouacs proches de la trace importée</Text>
+        </View>
+      )}
 
       <View style={styles.filterBar}>
         {filters.map((f) => (
@@ -180,6 +189,14 @@ const styles = StyleSheet.create({
   header: { backgroundColor: '#2A4A3E', padding: 16 },
   headerTitle: { color: '#fff', fontSize: 20, fontWeight: '700' },
   headerSub: { color: '#A8DADC', fontSize: 13, marginTop: 2 },
+  traceBanner: {
+    backgroundColor: '#EDE9FE',
+    borderBottomWidth: 1,
+    borderBottomColor: '#C4B5FD',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  traceBannerText: { fontSize: 12, color: '#5B21B6', fontWeight: '500' },
   filterBar: {
     flexDirection: 'row',
     padding: 10,

@@ -376,25 +376,16 @@ function useHtmlImporter(onContent: (content: string) => void) {
     };
   }, []); // runs once only — latest callback accessed via ref
 
-  const trigger = async () => {
+  const trigger = () => {
     if (Platform.OS === 'web') {
       inputRef.current?.click();
       return;
     }
-    // native
-    try {
-      const DocumentPicker = await import('expo-document-picker');
-      const FileSystem = await import('expo-file-system');
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['text/html', 'text/htm', '*/*'],
-        copyToCacheDirectory: true,
-      });
-      if (result.canceled || !result.assets?.[0]) return;
-      const content = await FileSystem.readAsStringAsync(result.assets[0].uri);
-      onContent(content);
-    } catch {
-      Alert.alert('Erreur', 'Impossible de lire le fichier.');
-    }
+    // Native: HTML import available on web only
+    Alert.alert(
+      'Import HTML',
+      "L'import de fichiers HTML est disponible uniquement depuis l'application web."
+    );
   };
 
   return trigger;

@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { REFUGES, Refuge, TypeHebergement } from '../data/refuges';
 import { ETAPES } from '../data/etapes';
+import { useGpx, isNearTrace } from '../context/GpxContext';
 
 const TYPE_ICON: Record<TypeHebergement, string> = {
   refuge: '⛺',
@@ -170,8 +171,12 @@ type Filter = 'tous' | TypeHebergement;
 export default function RefugesScreen() {
   const [selected, setSelected] = useState<Refuge | null>(null);
   const [filter, setFilter] = useState<Filter>('tous');
+  const { traceBbox } = useGpx();
 
-  const filtered = filter === 'tous' ? REFUGES : REFUGES.filter((r) => r.type === filter);
+  const byType = filter === 'tous' ? REFUGES : REFUGES.filter((r) => r.type === filter);
+  const filtered = traceBbox
+    ? byType.filter((r) => isNearTrace(r.coordonnees.lat, r.coordonnees.lng, traceBbox))
+    : byType;
 
   const filters: { key: Filter; label: string }[] = [
     { key: 'tous', label: 'Tous' },
@@ -184,8 +189,13 @@ export default function RefugesScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Hébergements</Text>
-        <Text style={styles.headerSub}>{filtered.length} hébergements</Text>
+        <Text style={styles.headerSub}>{filtered.length} hébergements{traceBbox ? ' · filtrés par trace' : ''}</Text>
       </View>
+      {traceBbox && (
+        <View style={styles.traceBanner}>
+          <Text style={styles.traceBannerText}>🟣 Affichage limité aux hébergements proches de la trace importée</Text>
+        </View>
+      )}
 
       <View style={styles.filterBar}>
         {filters.map((f) => (
@@ -228,6 +238,14 @@ const styles = StyleSheet.create({
   },
   headerTitle: { color: '#fff', fontSize: 20, fontWeight: '700' },
   headerSub: { color: '#A8DADC', fontSize: 13, marginTop: 2 },
+  traceBanner: {
+    backgroundColor: '#EDE9FE',
+    borderBottomWidth: 1,
+    borderBottomColor: '#C4B5FD',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  traceBannerText: { fontSize: 12, color: '#5B21B6', fontWeight: '500' },
   filterBar: {
     flexDirection: 'row',
     padding: 10,
