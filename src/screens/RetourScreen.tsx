@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
+  View, Text, ScrollView, StyleSheet, TouchableOpacity,
 } from 'react-native';
 import { C, FF, notebookBg } from '../theme';
+import { useGpx } from '../context/GpxContext';
+import { TREKS } from '../data/treks';
 
 interface TransportStep {
   label: string;
@@ -17,6 +15,7 @@ interface TransportStep {
 
 interface TransportCard {
   id: string;
+  trekIds: string[]; // which trek IDs this card applies to
   icon: string;
   title: string;
   meta: string;
@@ -27,6 +26,7 @@ interface TransportCard {
 const CARDS: TransportCard[] = [
   {
     id: 'gr10',
+    trekIds: ['gr10'],
     icon: '🚌',
     title: 'Depuis Sare ou Ainhoa',
     meta: '→ Biriatou',
@@ -44,15 +44,20 @@ const CARDS: TransportCard[] = [
   },
   {
     id: 'ossau',
+    trekIds: ['ayous', 'artouste'],
     icon: '🏔',
     title: "Depuis Lacs d'Ayous / Artouste",
-    meta: '→ Parking',
+    meta: '→ Parking Bious-Oumettes',
     steps: [
-      { label: "Gare lac d'Artouste", meta: 'Petit train → Télécabine Sagette', badge: { label: 'artouste.fr · 9h–15h · billet campeur', type: 'bus' } },
-      { label: 'Parking Fabrèges ou Caillou de Soques', meta: '~1h15 total train + télécabine', last: true },
+      { label: "Gare lac d'Artouste", meta: 'Fin de boucle Artouste · 2100m', badge: { label: 'artouste.fr · ouvert 9h–15h · billet campeur', type: 'bus' } },
+      { label: 'Télécabine de la Sagette', meta: 'Descente incluse dans le billet Artouste', badge: { label: 'Compris dans billet train · env. 25€', type: 'bus' } },
+      { label: 'Parking Fabrèges', meta: '~1h15 total depuis gare d\'Artouste', last: false },
+      { label: 'Parking Bious-Oumettes', meta: 'Votre voiture · 1422m · accès route D934', last: true },
     ],
     infos: [
-      { icon: '🚶', label: "Lacs d'Ayous → Bious-Oumettes", sub: 'Descente directe par la boucle · ~3h36' },
+      { icon: '🚶', label: "Alternative : descente à pied", sub: "Lacs d'Ayous → Bious-Oumettes par la boucle · ~2h30" },
+      { icon: '🚕', label: 'Taxi Laruns', sub: 'Option si télécabine fermée · Pau Ossau Taxis · 06 87 xx xx xx' },
+      { icon: '⚠️', label: 'Télécabine fermée oct–mai', sub: 'Hors saison, prévoir navette ou descente à pied obligatoire' },
     ],
   },
 ];
@@ -63,17 +68,50 @@ const BADGE_COLORS = {
   taxi: { bg: '#f3e8ff', tc: '#6b21a8' },
 };
 
+// trek ID → which card to show
+const TREK_TO_CARD: Record<string, string> = {
+  gr10:     'gr10',
+  ayous:    'ossau',
+  artouste: 'ossau',
+};
+
 export default function RetourScreen() {
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({ gr10: true });
+  const { activeTrekId } = useGpx();
+  const activeTrek = activeTrekId ? TREKS.find(t => t.id === activeTrekId) : null;
+
+  const visibleCards = activeTrekId
+    ? CARDS.filter(c => c.id === TREK_TO_CARD[activeTrekId])
+    : CARDS;
+
+  const [expanded, setExpanded] = useState<Record<string, boolean>>(
+    Object.fromEntries(CARDS.map(c => [c.id, c.id === (activeTrekId ? TREK_TO_CARD[activeTrekId] : 'gr10')]))
+  );
 
   const toggle = (id: string) => setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
 
   return (
     <View style={[s.root, notebookBg as any]}>
       <ScrollView contentContainerStyle={s.scroll}>
-        <Text style={s.sectionTitle}>Retour au départ</Text>
+        {/* Trek banner */}
+        {activeTrek ? (
+          <View style={[s.trekBanner, { borderLeftColor: activeTrek.color }]}>
+            <View style={[s.trekDot, { backgroundColor: activeTrek.color }]} />
+            <View style={{ flex: 1 }}>
+              <Text style={s.trekBannerLabel}>Trek actif</Text>
+              <Text style={s.trekBannerName}>{activeTrek.name}</Text>
+            </View>
+          </View>
+        ) : (
+          <View style={s.noTrekBanner}>
+            <Text style={s.noTrekText}>Sélectionnez un trek dans l'onglet Treks pour filtrer les retours.</Text>
+          </View>
+        )}
 
-        {CARDS.map(card => {
+        <Text style={s.sectionTitle}>
+          {activeTrek ? 'Retour depuis ce trek' : 'Retour au départ'}
+        </Text>
+
+        {visibleCards.map(card => {
           const isOpen = !!expanded[card.id];
           return (
             <View key={card.id} style={s.card}>
@@ -131,6 +169,21 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.paper },
   scroll: { padding: 16, paddingBottom: 40 },
 
+  trekBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: C.paper2, borderRadius: 8, borderWidth: 1, borderColor: C.line,
+    borderLeftWidth: 4, padding: 10, marginBottom: 12,
+  },
+  trekDot: { width: 8, height: 8, borderRadius: 4 },
+  trekBannerLabel: { fontFamily: FF.mono, fontSize: 8, letterSpacing: 1.2, textTransform: 'uppercase', color: C.ink, opacity: 0.4 },
+  trekBannerName: { fontFamily: FF.display, fontSize: 13, fontWeight: '600', color: C.ink, letterSpacing: -0.3 },
+
+  noTrekBanner: {
+    backgroundColor: C.paper3, borderRadius: 8, borderWidth: 1, borderColor: C.line,
+    padding: 10, marginBottom: 12,
+  },
+  noTrekText: { fontFamily: FF.mono, fontSize: 10, color: C.ink, opacity: 0.5, lineHeight: 15 },
+
   sectionTitle: {
     fontFamily: FF.display, fontSize: 18, fontWeight: '600', color: C.ink,
     letterSpacing: -0.5, marginBottom: 14,
@@ -142,8 +195,7 @@ const s = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8, elevation: 2,
   },
   cardHeader: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    padding: 12, borderBottomWidth: 0,
+    flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12,
   },
   cardIcon: { fontSize: 18 },
   cardTitle: { fontFamily: FF.display, fontSize: 15, fontWeight: '600', color: C.ink, flex: 1, letterSpacing: -0.3 },
