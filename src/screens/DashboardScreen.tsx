@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Modal,
   SafeAreaView,
+  TextInput,
   Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -15,6 +16,7 @@ import { C, FF, notebookBg, injectFonts } from '../theme';
 import { TREKS, Trek, StageRow, BadgeType } from '../data/treks';
 import { CHECKLIST_DATA } from '../data/checklist';
 import ElevationProfile from '../components/ElevationProfile';
+import { useGpx } from '../context/GpxContext';
 
 const CHECKED_KEY = 'rando_checked_v1';
 
@@ -73,7 +75,27 @@ function StageTableRow({ row }: { row: StageRow }) {
   );
 }
 
-function TrekDetail({ trek, onClose }: { trek: Trek; onClose: () => void }) {
+function TrekDetail({
+  trek,
+  initialNote,
+  onNoteChange,
+  onClose,
+}: {
+  trek: Trek;
+  initialNote: string;
+  onNoteChange: (text: string) => void;
+  onClose: () => void;
+}) {
+  const [myNotes, setMyNotes] = useState(initialNote);
+  const [saved, setSaved] = useState(false);
+
+  const handleNotesChange = (text: string) => {
+    setMyNotes(text);
+    setSaved(false);
+    onNoteChange(text);
+    setSaved(true);
+  };
+
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={[s.detailContainer, notebookBg as any]}>
@@ -83,7 +105,11 @@ function TrekDetail({ trek, onClose }: { trek: Trek; onClose: () => void }) {
           </TouchableOpacity>
           <Text style={s.detailTitle} numberOfLines={1}>{trek.name}</Text>
         </View>
-        <ScrollView style={s.detailScroll} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+        <ScrollView
+          style={s.detailScroll}
+          contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+          keyboardShouldPersistTaps="handled"
+        >
           {/* Elevation */}
           <View style={s.elevContainer}>
             <Text style={s.elevTitle}>Profil altimétrique</Text>
@@ -96,7 +122,6 @@ function TrekDetail({ trek, onClose }: { trek: Trek; onClose: () => void }) {
               <View style={s.dayHeader}>
                 <Text style={s.dayHeaderText}>{day.title}</Text>
               </View>
-              {/* Table header */}
               <View style={s.stageHeaderRow}>
                 <Text style={[s.stageHeaderCell, { flex: 2 }]}>Étape</Text>
                 <Text style={s.stageHeaderCell}>Dist.</Text>
@@ -110,7 +135,7 @@ function TrekDetail({ trek, onClose }: { trek: Trek; onClose: () => void }) {
             </View>
           ))}
 
-          {/* Notes */}
+          {/* Logistique */}
           <View style={s.notesCard}>
             {trek.notes.map((n, i) => (
               <View key={i} style={[s.infoRow, i === trek.notes.length - 1 && { borderBottomWidth: 0 }]}>
@@ -122,6 +147,25 @@ function TrekDetail({ trek, onClose }: { trek: Trek; onClose: () => void }) {
               </View>
             ))}
           </View>
+
+          {/* Mes notes */}
+          <View style={s.myNotesSection}>
+            <View style={s.myNotesHeader}>
+              <Text style={s.myNotesTitle}>✏ Mes notes</Text>
+              {saved && myNotes.trim().length > 0 && (
+                <Text style={s.savedLabel}>Sauvegardé</Text>
+              )}
+            </View>
+            <TextInput
+              style={s.myNotesInput}
+              multiline
+              value={myNotes}
+              onChangeText={handleNotesChange}
+              placeholder={"Pensées, idées, rappels sur ce trek…\n\nEx: partir tôt le J1, prévoir ravito Sare, vérifier météo 48h avant…"}
+              placeholderTextColor={`${C.ink}55`}
+              textAlignVertical="top"
+            />
+          </View>
         </ScrollView>
       </SafeAreaView>
     </Modal>
@@ -130,6 +174,7 @@ function TrekDetail({ trek, onClose }: { trek: Trek; onClose: () => void }) {
 
 export default function DashboardScreen() {
   injectFonts();
+  const { trekNotes, setTrekNote } = useGpx();
   const [selectedTrek, setSelectedTrek] = useState<Trek | null>(null);
   const [checkPct, setCheckPct] = useState(0);
   const [isOnline, setIsOnline] = useState(true);
@@ -140,9 +185,7 @@ export default function DashboardScreen() {
         const checked = raw ? JSON.parse(raw) : {};
         setCheckPct(computePct(checked));
       });
-      if (Platform.OS === 'web') {
-        setIsOnline(navigator.onLine);
-      }
+      if (Platform.OS === 'web') setIsOnline(navigator.onLine);
     }, [])
   );
 
@@ -186,7 +229,14 @@ export default function DashboardScreen() {
                 <ElevationProfile path={trek.cardElevPath} color={trek.color} height={80} />
               </View>
               <View style={s.trekInfo}>
-                <Text style={s.trekName}>{trek.name}</Text>
+                <View style={s.trekNameRow}>
+                  <Text style={s.trekName}>{trek.name}</Text>
+                  {trekNotes[trek.id]?.trim() ? (
+                    <View style={s.notesDot}>
+                      <Text style={s.notesDotText}>✏</Text>
+                    </View>
+                  ) : null}
+                </View>
                 <View style={s.trekTags}>
                   <View style={[s.tag, { backgroundColor: C.ink }]}>
                     <Text style={[s.tagText, { color: C.paper }]}>{trek.days} jours</Text>
@@ -218,7 +268,12 @@ export default function DashboardScreen() {
       </ScrollView>
 
       {selectedTrek && (
-        <TrekDetail trek={selectedTrek} onClose={() => setSelectedTrek(null)} />
+        <TrekDetail
+          trek={selectedTrek}
+          initialNote={trekNotes[selectedTrek.id] ?? ''}
+          onNoteChange={(text) => setTrekNote(selectedTrek.id, text)}
+          onClose={() => setSelectedTrek(null)}
+        />
       )}
     </View>
   );
@@ -256,7 +311,10 @@ const s = StyleSheet.create({
   },
   trekHero: { overflow: 'hidden' },
   trekInfo: { padding: 12 },
-  trekName: { fontFamily: FF.display, fontSize: 16, fontWeight: '600', color: C.ink, letterSpacing: -0.3, marginBottom: 6 },
+  trekNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  trekName: { fontFamily: FF.display, fontSize: 16, fontWeight: '600', color: C.ink, letterSpacing: -0.3, flex: 1 },
+  notesDot: { backgroundColor: 'rgba(232,160,48,0.2)', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: C.accent2 },
+  notesDotText: { fontSize: 10 },
   trekTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
   tag: { borderRadius: 20, paddingHorizontal: 7, paddingVertical: 2 },
   tagText: { fontSize: 9, letterSpacing: 0.5, textTransform: 'uppercase', fontWeight: '500', fontFamily: FF.mono },
@@ -301,4 +359,25 @@ const s = StyleSheet.create({
   infoIcon: { fontSize: 16, width: 24, textAlign: 'center' },
   infoLabel: { fontFamily: FF.mono, fontSize: 12, color: C.ink, fontWeight: '500' },
   infoSub: { fontFamily: FF.mono, fontSize: 10, color: C.ink, opacity: 0.5, marginTop: 1 },
+
+  myNotesSection: {
+    marginTop: 14, borderRadius: 10, borderWidth: 1.5,
+    borderColor: C.accent2, backgroundColor: 'rgba(232,160,48,0.06)', overflow: 'hidden',
+  },
+  myNotesHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6,
+    borderBottomWidth: 1, borderBottomColor: 'rgba(232,160,48,0.2)',
+  },
+  myNotesTitle: {
+    fontFamily: FF.mono, fontSize: 10, letterSpacing: 0.8,
+    textTransform: 'uppercase', color: C.accent2, fontWeight: '500',
+  },
+  savedLabel: {
+    fontFamily: FF.mono, fontSize: 9, color: C.green, letterSpacing: 0.5,
+  },
+  myNotesInput: {
+    fontFamily: FF.mono, fontSize: 12, color: C.ink,
+    padding: 12, minHeight: 120, lineHeight: 20,
+  },
 });
