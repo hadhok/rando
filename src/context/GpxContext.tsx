@@ -33,19 +33,31 @@ const SB_H = {
 
 type Notes = Record<string, string>;
 type Dates = Record<string, string>; // trekId -> ISO date "YYYY-MM-DD"
+export type SyncStatus = 'idle' | 'syncing' | 'ok' | 'error';
 
 function generateCode(): string {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
-async function sbPush(code: string, gpx: GpxTrack | null, it: Itineraire | null, notes: Notes) {
+async function sbPush(code: string, gpx: GpxTrack | null, it: Itineraire | null, notes: Notes): Promise<boolean> {
+  const opts = (body: object) => ({
+    method: 'POST' as const,
+    headers: { ...SB_H, Prefer: 'resolution=merge-duplicates' },
+    body: JSON.stringify(body),
+  });
+  const url = `${TABLE}?on_conflict=code`;
+  const ts = new Date().toISOString();
   try {
-    await fetch(`${TABLE}?on_conflict=code`, {
-      method: 'POST',
-      headers: { ...SB_H, Prefer: 'resolution=merge-duplicates' },
-      body: JSON.stringify({ code, gpx_track: gpx, itineraire: it, trek_notes: notes, updated_at: new Date().toISOString() }),
-    });
-  } catch {}
+    const full = { code, gpx_track: gpx, itineraire: it, trek_notes: notes, updated_at: ts };
+    let res = await fetch(url, opts(full));
+    if (!res.ok && res.status === 400) {
+      // trek_notes column might not exist yet — retry without it
+      res = await fetch(url, opts({ code, gpx_track: gpx, itineraire: it, updated_at: ts }));
+    }
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 async function sbPull(code: string): Promise<{ gpx_track: GpxTrack | null; itineraire: Itineraire | null; trek_notes: Notes | null } | null> {
@@ -83,6 +95,7 @@ interface GpxContextValue {
   setActiveTrekId: (id: string | null) => void;
   trekDates: Dates;
   setTrekDate: (trekId: string, date: string) => void;
+  syncStatus: SyncStatus;
 }
 
 const GpxContext = createContext<GpxContextValue>({
@@ -93,6 +106,7 @@ const GpxContext = createContext<GpxContextValue>({
   trekNotes: {}, setTrekNote: () => {},
   activeTrekId: null, setActiveTrekId: () => {},
   trekDates: {}, setTrekDate: () => {},
+  syncStatus: 'idle',
 });
 
 export function GpxProvider({ children }: { children: React.ReactNode }) {
@@ -102,9 +116,17 @@ export function GpxProvider({ children }: { children: React.ReactNode }) {
   const [activeTrekId, setActiveTrekIdState] = useState<string | null>(null);
   const [trekDates, setTrekDatesState]   = useState<Dates>({});
   const [syncCode, setSyncCode]          = useState('');
+  const [syncStatus, setSyncStatus]      = useState<SyncStatus>('idle');
 
   const syncCodeRef = useRef('');
   const stateRef    = useRef({ gpx: null as GpxTrack | null, it: null as Itineraire | null, notes: {} as Notes });
+
+  const push = useCallback(async (gpx: GpxTrack | null, it: Itineraire | null, notes: Notes) => {
+    if (!syncCodeRef.current) return;
+    setSyncStatus('syncing');
+    const ok = await sbPush(syncCodeRef.current, gpx, it, notes);
+    setSyncStatus(ok ? 'ok' : 'error');
+  }, []);
 
   useEffect(() => {
     (AsyncStorage as any).getMany([KEY_GPX, KEY_IT, KEY_CODE, KEY_NOTES, KEY_ACTIVE, KEY_DATES]).then(
@@ -134,10 +156,12 @@ export function GpxProvider({ children }: { children: React.ReactNode }) {
           const rNotes = remote.trek_notes ?? {};
           if (Object.keys(rNotes).length > 0) { stateRef.current.notes = rNotes; setTrekNotesState(rNotes); AsyncStorage.setItem(KEY_NOTES, JSON.stringify(rNotes)); }
           if (!remote.gpx_track && !remote.itineraire && (localGpx || localIt || Object.keys(localNotes).length > 0)) {
-            sbPush(code, localGpx, localIt, localNotes);
+            setSyncStatus('syncing');
+            sbPush(code, localGpx, localIt, localNotes).then(ok => setSyncStatus(ok ? 'ok' : 'error'));
           }
         } else if (localGpx || localIt || Object.keys(localNotes).length > 0) {
-          sbPush(code, localGpx, localIt, localNotes);
+          setSyncStatus('syncing');
+          sbPush(code, localGpx, localIt, localNotes).then(ok => setSyncStatus(ok ? 'ok' : 'error'));
         }
       }
     );
@@ -147,15 +171,15 @@ export function GpxProvider({ children }: { children: React.ReactNode }) {
     stateRef.current.gpx = track;
     setGpxTrackState(track);
     track ? AsyncStorage.setItem(KEY_GPX, JSON.stringify(track)) : AsyncStorage.removeItem(KEY_GPX);
-    if (syncCodeRef.current) sbPush(syncCodeRef.current, track, stateRef.current.it, stateRef.current.notes);
-  }, []);
+    push(track, stateRef.current.it, stateRef.current.notes);
+  }, [push]);
 
   const setItineraire = useCallback((it: Itineraire | null) => {
     stateRef.current.it = it;
     setItineraireState(it);
     it ? AsyncStorage.setItem(KEY_IT, JSON.stringify(it)) : AsyncStorage.removeItem(KEY_IT);
-    if (syncCodeRef.current) sbPush(syncCodeRef.current, stateRef.current.gpx, it, stateRef.current.notes);
-  }, []);
+    push(stateRef.current.gpx, it, stateRef.current.notes);
+  }, [push]);
 
   const setTrekNote = useCallback((trekId: string, text: string) => {
     const next: Notes = { ...stateRef.current.notes };
@@ -163,8 +187,8 @@ export function GpxProvider({ children }: { children: React.ReactNode }) {
     stateRef.current.notes = next;
     setTrekNotesState(next);
     Object.keys(next).length > 0 ? AsyncStorage.setItem(KEY_NOTES, JSON.stringify(next)) : AsyncStorage.removeItem(KEY_NOTES);
-    if (syncCodeRef.current) sbPush(syncCodeRef.current, stateRef.current.gpx, stateRef.current.it, next);
-  }, []);
+    push(stateRef.current.gpx, stateRef.current.it, next);
+  }, [push]);
 
   const setActiveTrekId = useCallback((id: string | null) => {
     setActiveTrekIdState(id);
@@ -191,6 +215,7 @@ export function GpxProvider({ children }: { children: React.ReactNode }) {
       if (remote.itineraire) { stateRef.current.it  = remote.itineraire; setItineraireState(remote.itineraire); await AsyncStorage.setItem(KEY_IT, JSON.stringify(remote.itineraire)); }
       const rNotes = remote.trek_notes ?? {};
       if (Object.keys(rNotes).length > 0) { stateRef.current.notes = rNotes; setTrekNotesState(rNotes); await AsyncStorage.setItem(KEY_NOTES, JSON.stringify(rNotes)); }
+      setSyncStatus('ok');
     }
   }, []);
 
@@ -206,7 +231,7 @@ export function GpxProvider({ children }: { children: React.ReactNode }) {
   }, [gpxTrack]);
 
   return (
-    <GpxContext.Provider value={{ gpxTrack, setGpxTrack, itineraire, setItineraire, traceBbox, syncCode, joinSyncCode, trekNotes, setTrekNote, activeTrekId, setActiveTrekId, trekDates, setTrekDate }}>
+    <GpxContext.Provider value={{ gpxTrack, setGpxTrack, itineraire, setItineraire, traceBbox, syncCode, joinSyncCode, trekNotes, setTrekNote, activeTrekId, setActiveTrekId, trekDates, setTrekDate, syncStatus }}>
       {children}
     </GpxContext.Provider>
   );

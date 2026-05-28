@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Platform, Text, View, StyleSheet } from 'react-native';
-import { GpxProvider } from './src/context/GpxContext';
+import { GpxProvider, useGpx, SyncStatus } from './src/context/GpxContext';
 import { C, FF, injectFonts } from './src/theme';
 
 import MapScreen from './src/screens/MapScreen';
@@ -21,7 +21,18 @@ const TABS = [
   { name: 'Terrain', icon: '◉',   component: TerrainScreen },
 ];
 
+const SYNC_META: Record<SyncStatus, { dot: string; label: string }> = {
+  idle:    { dot: '#94a3b8', label: 'local' },
+  syncing: { dot: '#fbbf24', label: 'sync…' },
+  ok:      { dot: '#4ade80', label: 'sauvé' },
+  error:   { dot: '#ef4444', label: 'erreur' },
+};
+
 function AppHeader({ isOnline }: { isOnline: boolean }) {
+  const { syncStatus } = useGpx();
+  const meta = SYNC_META[isOnline ? syncStatus : 'idle'];
+  const dotColor = isOnline ? meta.dot : '#ef4444';
+  const label    = isOnline ? meta.label : 'offline';
   return (
     <View style={h.header}>
       <View style={h.logoRow}>
@@ -34,8 +45,8 @@ function AppHeader({ isOnline }: { isOnline: boolean }) {
         </View>
       </View>
       <View style={h.statusRow}>
-        <View style={[h.statusDot, isOnline ? h.dotOnline : h.dotOffline]} />
-        <Text style={h.statusText}>{isOnline ? 'En ligne' : 'Hors ligne'}</Text>
+        <View style={[h.statusDot, { backgroundColor: dotColor }]} />
+        <Text style={h.statusText}>{label}</Text>
       </View>
     </View>
   );
@@ -139,8 +150,6 @@ const h = StyleSheet.create({
   },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
-  dotOnline: { backgroundColor: '#4ade80' },
-  dotOffline: { backgroundColor: '#ef4444' },
   statusText: {
     fontFamily: FF.mono, fontSize: 9, letterSpacing: 1,
     color: C.paper, opacity: 0.6, textTransform: 'uppercase',
