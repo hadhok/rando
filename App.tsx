@@ -9,7 +9,6 @@ import MapScreen from './src/screens/MapScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
 import ChecklistScreen from './src/screens/ChecklistScreen';
 import RetourScreen from './src/screens/RetourScreen';
-import MeteoScreen from './src/screens/MeteoScreen';
 import TerrainScreen from './src/screens/TerrainScreen';
 
 const Tab = createBottomTabNavigator();
@@ -19,7 +18,6 @@ const TABS = [
   { name: 'Treks',   icon: '⛰',  component: DashboardScreen },
   { name: 'Sac',     icon: '✓',   component: ChecklistScreen },
   { name: 'Retour',  icon: '🚌',  component: RetourScreen },
-  { name: 'Météo',   icon: '☁',   component: MeteoScreen },
   { name: 'Terrain', icon: '◉',   component: TerrainScreen },
 ];
 
