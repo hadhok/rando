@@ -1,71 +1,150 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Platform, Text } from 'react-native';
+import { Platform, Text, View, StyleSheet } from 'react-native';
 import { GpxProvider } from './src/context/GpxContext';
-import { TrekProvider } from './src/context/TrekContext';
+import { C, FF, injectFonts } from './src/theme';
 
 import MapScreen from './src/screens/MapScreen';
-import TrekScreen from './src/screens/TrekScreen';
-import RouteScreen from './src/screens/RouteScreen';
-import SpotsScreen from './src/screens/SpotsScreen';
-import InfoScreen from './src/screens/InfoScreen';
+import DashboardScreen from './src/screens/DashboardScreen';
+import ChecklistScreen from './src/screens/ChecklistScreen';
+import RetourScreen from './src/screens/RetourScreen';
+import MeteoScreen from './src/screens/MeteoScreen';
+import TerrainScreen from './src/screens/TerrainScreen';
 
 const Tab = createBottomTabNavigator();
 
-const TAB_ICONS: Record<string, string> = {
-  Carte:  '🗺',
-  Trek:   '🏕',
-  Route:  '📍',
-  Spots:  '🏠',
-  Infos:  '📡',
-};
+const TABS = [
+  { name: 'Carte',   icon: '🗺',  component: MapScreen },
+  { name: 'Treks',   icon: '⛰',  component: DashboardScreen },
+  { name: 'Sac',     icon: '✓',   component: ChecklistScreen },
+  { name: 'Retour',  icon: '🚌',  component: RetourScreen },
+  { name: 'Météo',   icon: '☁',   component: MeteoScreen },
+  { name: 'Terrain', icon: '◉',   component: TerrainScreen },
+];
 
-function TabIcon({ label, focused }: { label: string; focused: boolean }) {
+function AppHeader({ isOnline }: { isOnline: boolean }) {
   return (
-    <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.45 }}>
-      {TAB_ICONS[label] ?? '●'}
-    </Text>
+    <View style={h.header}>
+      <View style={h.logoRow}>
+        <View style={h.logoBadge}>
+          <Text style={h.logoEmoji}>⛰</Text>
+        </View>
+        <View>
+          <Text style={h.appName}>RandoOS</Text>
+          <Text style={h.appSub}>Préparation · Terrain · Offline</Text>
+        </View>
+      </View>
+      <View style={h.statusRow}>
+        <View style={[h.statusDot, isOnline ? h.dotOnline : h.dotOffline]} />
+        <Text style={h.statusText}>{isOnline ? 'En ligne' : 'Hors ligne'}</Text>
+      </View>
+    </View>
   );
 }
 
 export default function App() {
+  injectFonts();
+
+  const [isOnline, setIsOnline] = useState(
+    Platform.OS === 'web' && typeof navigator !== 'undefined' ? navigator.onLine : true
+  );
+
   useEffect(() => {
-    if (Platform.OS === 'web' && 'serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    if (Platform.OS === 'web') {
+      if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+      const on = () => setIsOnline(true);
+      const off = () => setIsOnline(false);
+      window.addEventListener('online', on);
+      window.addEventListener('offline', off);
+      return () => {
+        window.removeEventListener('online', on);
+        window.removeEventListener('offline', off);
+      };
     }
   }, []);
 
   return (
     <GpxProvider>
-      <TrekProvider>
+      <View style={styles.root}>
+        <AppHeader isOnline={isOnline} />
         <NavigationContainer>
           <Tab.Navigator
             screenOptions={({ route }) => ({
               headerShown: false,
               tabBarIcon: ({ focused }) => (
-                <TabIcon label={route.name} focused={focused} />
+                <Text style={{ fontSize: 17, opacity: focused ? 1 : 0.5 }}>
+                  {TABS.find(t => t.name === route.name)?.icon ?? '●'}
+                </Text>
               ),
-              tabBarActiveTintColor: '#264653',
-              tabBarInactiveTintColor: '#aaa',
+              tabBarActiveTintColor: C.paper,
+              tabBarInactiveTintColor: 'rgba(244,240,232,0.45)',
+              tabBarActiveBackgroundColor: C.accent,
+              tabBarInactiveBackgroundColor: C.ink2,
               tabBarStyle: {
-                backgroundColor: '#fff',
-                borderTopColor: '#e8e8e8',
-                height: 62,
-                paddingBottom: 8,
+                backgroundColor: C.ink2,
+                borderTopWidth: 2,
+                borderTopColor: C.accent,
+                height: 58,
+                paddingBottom: 6,
                 paddingTop: 2,
               },
-              tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+              tabBarLabelStyle: {
+                fontSize: 8,
+                fontFamily: FF.mono,
+                letterSpacing: 0.8,
+                textTransform: 'uppercase',
+              },
             })}
           >
-            <Tab.Screen name="Carte"  component={MapScreen}   />
-            <Tab.Screen name="Trek"   component={TrekScreen}  />
-            <Tab.Screen name="Route"  component={RouteScreen} />
-            <Tab.Screen name="Spots"  component={SpotsScreen} />
-            <Tab.Screen name="Infos"  component={InfoScreen}  />
+            {TABS.map(tab => (
+              <Tab.Screen
+                key={tab.name}
+                name={tab.name}
+                component={tab.component}
+              />
+            ))}
           </Tab.Navigator>
         </NavigationContainer>
-      </TrekProvider>
+      </View>
     </GpxProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: C.ink },
+});
+
+const h = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: C.ink,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  logoRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  logoBadge: {
+    width: 32, height: 32, borderRadius: 16,
+    borderWidth: 1, borderColor: 'rgba(244,240,232,0.25)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  logoEmoji: { fontSize: 16 },
+  appName: {
+    fontFamily: FF.display, fontSize: 18, fontWeight: '600',
+    color: C.paper, letterSpacing: -0.5,
+  },
+  appSub: {
+    fontFamily: FF.mono, fontSize: 8, letterSpacing: 1.5,
+    color: C.paper, opacity: 0.5, textTransform: 'uppercase', marginTop: 1,
+  },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  dotOnline: { backgroundColor: '#4ade80' },
+  dotOffline: { backgroundColor: '#ef4444' },
+  statusText: {
+    fontFamily: FF.mono, fontSize: 9, letterSpacing: 1,
+    color: C.paper, opacity: 0.6, textTransform: 'uppercase',
+  },
+});
