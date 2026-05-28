@@ -98,20 +98,23 @@ export function GpxProvider({ children }: { children: React.ReactNode }) {
   const stateRef      = useRef({ gpx: null as GpxTrack | null, it: null as Itineraire | null });
 
   useEffect(() => {
-    AsyncStorage.multiGet([KEY_GPX, KEY_IT, KEY_CODE]).then(async (pairs) => {
-      const [gpxPair, itPair, codePair] = pairs;
+    // AsyncStorage v3 API: getMany returns {key: value|null} object
+    (AsyncStorage as any).getMany([KEY_GPX, KEY_IT, KEY_CODE]).then(async (values: Record<string, string | null>) => {
+      const gpxStr  = values[KEY_GPX]  ?? null;
+      const itStr   = values[KEY_IT]   ?? null;
+      const codeStr = values[KEY_CODE] ?? null;
 
       let localGpx: GpxTrack | null = null;
       let localIt: Itineraire | null = null;
-      if (gpxPair[1]) { try { localGpx = JSON.parse(gpxPair[1]); } catch {} }
-      if (itPair[1])  { try { localIt  = JSON.parse(itPair[1]);  } catch {} }
+      if (gpxStr) { try { localGpx = JSON.parse(gpxStr); } catch {} }
+      if (itStr)  { try { localIt  = JSON.parse(itStr);  } catch {} }
 
       // Show local data immediately
       if (localGpx) { stateRef.current.gpx = localGpx; setGpxTrackState(localGpx); }
       if (localIt)  { stateRef.current.it  = localIt;  setItineraireState(localIt); }
 
       // Resolve sync code
-      let code = codePair[1] ?? '';
+      let code = codeStr ?? '';
       if (!code) {
         code = generateCode();
         await AsyncStorage.setItem(KEY_CODE, code);
