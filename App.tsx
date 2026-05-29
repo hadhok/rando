@@ -7,6 +7,7 @@ import { C, FF, injectFonts } from './src/theme';
 
 import MapScreen from './src/screens/MapScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
+import JournalScreen from './src/screens/JournalScreen';
 import ChecklistScreen from './src/screens/ChecklistScreen';
 import RetourScreen from './src/screens/RetourScreen';
 import TerrainScreen from './src/screens/TerrainScreen';
@@ -16,6 +17,7 @@ const Tab = createBottomTabNavigator();
 const TABS = [
   { name: 'Carte',   icon: '🗺',  component: MapScreen },
   { name: 'Treks',   icon: '⛰',  component: DashboardScreen },
+  { name: 'Journal', icon: '✎',   component: JournalScreen },
   { name: 'Sac',     icon: '✓',   component: ChecklistScreen },
   { name: 'Retour',  icon: '🚌',  component: RetourScreen },
   { name: 'Terrain', icon: '◉',   component: TerrainScreen },

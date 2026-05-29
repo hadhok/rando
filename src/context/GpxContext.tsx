@@ -3,12 +3,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GpxTrack } from '../utils/gpxParser';
 import { Itineraire } from '../utils/itineraireParser';
 
-const KEY_GPX    = 'gpx_track_v2';
-const KEY_IT     = 'itineraire_v1';
-const KEY_CODE   = 'sync_code_v1';
-const KEY_NOTES  = 'trek_notes_v1';
-const KEY_ACTIVE = 'active_trek_v1';
-const KEY_DATES  = 'trek_dates_v1';
+const KEY_GPX     = 'gpx_track_v2';
+const KEY_IT      = 'itineraire_v1';
+const KEY_CODE    = 'sync_code_v1';
+const KEY_NOTES   = 'trek_notes_v1';
+const KEY_ACTIVE  = 'active_trek_v1';
+const KEY_DATES   = 'trek_dates_v1';
+const KEY_STAGES  = 'stages_done_v1';
+const KEY_JOURNAL = 'journal_v1';
 
 // ─── Supabase sync ────────────────────────────────────────────────────────────
 // create table rando_sync (
@@ -32,8 +34,17 @@ const SB_H = {
 };
 
 type Notes = Record<string, string>;
-type Dates = Record<string, string>; // trekId -> ISO date "YYYY-MM-DD"
+type Dates = Record<string, string>;
 export type SyncStatus = 'idle' | 'syncing' | 'ok' | 'error';
+
+export interface JournalEntry {
+  id: string;       // `${trekId}-${date}`
+  trekId: string;
+  date: string;     // YYYY-MM-DD
+  text: string;
+  meteo: string;    // weather emoji
+  humeur: string;   // mood emoji
+}
 
 function generateCode(): string {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
@@ -51,7 +62,6 @@ async function sbPush(code: string, gpx: GpxTrack | null, it: Itineraire | null,
     const full = { code, gpx_track: gpx, itineraire: it, trek_notes: notes, updated_at: ts };
     let res = await fetch(url, opts(full));
     if (!res.ok && res.status === 400) {
-      // trek_notes column might not exist yet — retry without it
       res = await fetch(url, opts({ code, gpx_track: gpx, itineraire: it, updated_at: ts }));
     }
     return res.ok;
@@ -95,6 +105,11 @@ interface GpxContextValue {
   setActiveTrekId: (id: string | null) => void;
   trekDates: Dates;
   setTrekDate: (trekId: string, date: string) => void;
+  stagesDone: Record<string, boolean>;
+  setStagesDone: (key: string, done: boolean) => void;
+  journalEntries: Record<string, JournalEntry>;
+  setJournalEntry: (entry: JournalEntry) => void;
+  deleteJournalEntry: (id: string) => void;
   syncStatus: SyncStatus;
 }
 
@@ -106,17 +121,21 @@ const GpxContext = createContext<GpxContextValue>({
   trekNotes: {}, setTrekNote: () => {},
   activeTrekId: null, setActiveTrekId: () => {},
   trekDates: {}, setTrekDate: () => {},
+  stagesDone: {}, setStagesDone: () => {},
+  journalEntries: {}, setJournalEntry: () => {}, deleteJournalEntry: () => {},
   syncStatus: 'idle',
 });
 
 export function GpxProvider({ children }: { children: React.ReactNode }) {
-  const [gpxTrack, setGpxTrackState]     = useState<GpxTrack | null>(null);
-  const [itineraire, setItineraireState] = useState<Itineraire | null>(null);
-  const [trekNotes, setTrekNotesState]   = useState<Notes>({});
-  const [activeTrekId, setActiveTrekIdState] = useState<string | null>(null);
-  const [trekDates, setTrekDatesState]   = useState<Dates>({});
-  const [syncCode, setSyncCode]          = useState('');
-  const [syncStatus, setSyncStatus]      = useState<SyncStatus>('idle');
+  const [gpxTrack, setGpxTrackState]             = useState<GpxTrack | null>(null);
+  const [itineraire, setItineraireState]         = useState<Itineraire | null>(null);
+  const [trekNotes, setTrekNotesState]           = useState<Notes>({});
+  const [activeTrekId, setActiveTrekIdState]     = useState<string | null>(null);
+  const [trekDates, setTrekDatesState]           = useState<Dates>({});
+  const [stagesDone, setStagesDoneState]         = useState<Record<string, boolean>>({});
+  const [journalEntries, setJournalEntriesState] = useState<Record<string, JournalEntry>>({});
+  const [syncCode, setSyncCode]                  = useState('');
+  const [syncStatus, setSyncStatus]              = useState<SyncStatus>('idle');
 
   const syncCodeRef = useRef('');
   const stateRef    = useRef({ gpx: null as GpxTrack | null, it: null as Itineraire | null, notes: {} as Notes });
@@ -129,16 +148,18 @@ export function GpxProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    (AsyncStorage as any).getMany([KEY_GPX, KEY_IT, KEY_CODE, KEY_NOTES, KEY_ACTIVE, KEY_DATES]).then(
+    (AsyncStorage as any).getMany([KEY_GPX, KEY_IT, KEY_CODE, KEY_NOTES, KEY_ACTIVE, KEY_DATES, KEY_STAGES, KEY_JOURNAL]).then(
       async (values: Record<string, string | null>) => {
         let localGpx: GpxTrack | null = null;
         let localIt: Itineraire | null = null;
         let localNotes: Notes = {};
-        try { if (values[KEY_GPX])   localGpx   = JSON.parse(values[KEY_GPX]!);   } catch {}
-        try { if (values[KEY_IT])    localIt    = JSON.parse(values[KEY_IT]!);    } catch {}
-        try { if (values[KEY_NOTES]) localNotes = JSON.parse(values[KEY_NOTES]!); } catch {}
-        try { if (values[KEY_ACTIVE]) setActiveTrekIdState(values[KEY_ACTIVE]);   } catch {}
-        try { if (values[KEY_DATES]) setTrekDatesState(JSON.parse(values[KEY_DATES]!)); } catch {}
+        try { if (values[KEY_GPX])    localGpx   = JSON.parse(values[KEY_GPX]!);    } catch {}
+        try { if (values[KEY_IT])     localIt    = JSON.parse(values[KEY_IT]!);     } catch {}
+        try { if (values[KEY_NOTES])  localNotes = JSON.parse(values[KEY_NOTES]!);  } catch {}
+        try { if (values[KEY_ACTIVE]) setActiveTrekIdState(values[KEY_ACTIVE]);      } catch {}
+        try { if (values[KEY_DATES])  setTrekDatesState(JSON.parse(values[KEY_DATES]!)); } catch {}
+        try { if (values[KEY_STAGES]) setStagesDoneState(JSON.parse(values[KEY_STAGES]!)); } catch {}
+        try { if (values[KEY_JOURNAL]) setJournalEntriesState(JSON.parse(values[KEY_JOURNAL]!)); } catch {}
 
         if (localGpx)  { stateRef.current.gpx   = localGpx;   setGpxTrackState(localGpx); }
         if (localIt)   { stateRef.current.it    = localIt;    setItineraireState(localIt); }
@@ -204,6 +225,32 @@ export function GpxProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const setStagesDone = useCallback((key: string, done: boolean) => {
+    setStagesDoneState(prev => {
+      const next = { ...prev };
+      done ? (next[key] = true) : delete next[key];
+      Object.keys(next).length > 0 ? AsyncStorage.setItem(KEY_STAGES, JSON.stringify(next)) : AsyncStorage.removeItem(KEY_STAGES);
+      return next;
+    });
+  }, []);
+
+  const setJournalEntry = useCallback((entry: JournalEntry) => {
+    setJournalEntriesState(prev => {
+      const next = { ...prev, [entry.id]: entry };
+      AsyncStorage.setItem(KEY_JOURNAL, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const deleteJournalEntry = useCallback((id: string) => {
+    setJournalEntriesState(prev => {
+      const next = { ...prev };
+      delete next[id];
+      Object.keys(next).length > 0 ? AsyncStorage.setItem(KEY_JOURNAL, JSON.stringify(next)) : AsyncStorage.removeItem(KEY_JOURNAL);
+      return next;
+    });
+  }, []);
+
   const joinSyncCode = useCallback(async (code: string) => {
     const normalized = code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
     syncCodeRef.current = normalized;
@@ -231,7 +278,16 @@ export function GpxProvider({ children }: { children: React.ReactNode }) {
   }, [gpxTrack]);
 
   return (
-    <GpxContext.Provider value={{ gpxTrack, setGpxTrack, itineraire, setItineraire, traceBbox, syncCode, joinSyncCode, trekNotes, setTrekNote, activeTrekId, setActiveTrekId, trekDates, setTrekDate, syncStatus }}>
+    <GpxContext.Provider value={{
+      gpxTrack, setGpxTrack, itineraire, setItineraire, traceBbox,
+      syncCode, joinSyncCode,
+      trekNotes, setTrekNote,
+      activeTrekId, setActiveTrekId,
+      trekDates, setTrekDate,
+      stagesDone, setStagesDone,
+      journalEntries, setJournalEntry, deleteJournalEntry,
+      syncStatus,
+    }}>
       {children}
     </GpxContext.Provider>
   );

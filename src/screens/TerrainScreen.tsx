@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet,
-  TouchableOpacity, RefreshControl, Platform,
+  TouchableOpacity, RefreshControl, Platform, Linking,
 } from 'react-native';
 import { C, FF, notebookBg } from '../theme';
 import { useGpx } from '../context/GpxContext';
@@ -26,6 +26,7 @@ const WMO_EMOJI: Record<number, string> = {
   95: '⛈', 96: '⛈', 99: '⛈',
 };
 const DAY_LABELS = ['Auj.', 'Dem.', 'J+2'];
+const HOURLY_SLOTS = [6, 9, 12, 15, 18];
 
 const ZONE_BY_TREK: Record<string, { lat: number; lng: number; label: string; sub: string }> = {
   gr10:     { lat: 43.37, lng: -1.78, label: 'GR10 — Pays Basque', sub: 'Zone côtière · 0–600m' },
@@ -37,12 +38,16 @@ const ALL_ZONES = [
   { id: 'ossau', ...ZONE_BY_TREK.ayous },
 ];
 
-const CACHE_TTL = 3 * 60 * 60 * 1000;
+const CACHE_TTL       = 3 * 60 * 60 * 1000;
+const CACHE_TTL_H     = 60 * 60 * 1000;
 
-interface DayForecast { tMax: number; tMin: number; code: number; }
-interface ZoneResult { days: DayForecast[]; ts: number; fromCache: boolean; }
+interface DayForecast  { tMax: number; tMin: number; code: number; }
+interface HourSlot     { hour: string; code: number; temp: number; wind: number; }
+interface ZoneResult   { days: DayForecast[]; ts: number; fromCache: boolean; }
+interface ZoneHourly   { today: HourSlot[]; tomorrow: HourSlot[]; ts: number; }
 
-function cacheKey(id: string) { return `meteo_${id}_v2`; }
+function cacheKey(id: string)  { return `meteo_${id}_v2`; }
+function cacheKeyH(id: string) { return `meteo_h_${id}_v1`; }
 function ageLabel(ts: number): string {
   const min = Math.round((Date.now() - ts) / 60000);
   if (min < 2) return 'À l\'instant';
@@ -76,6 +81,43 @@ async function fetchZone(id: string, lat: number, lng: number): Promise<ZoneResu
     try { localStorage.setItem(key, JSON.stringify({ ts: now, data: days })); } catch {}
   }
   return { days, ts: now, fromCache: false };
+}
+
+async function fetchHourly(id: string, lat: number, lng: number): Promise<ZoneHourly> {
+  const key = cacheKeyH(id);
+  const now = Date.now();
+  if (Platform.OS === 'web') {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (now - parsed.ts < CACHE_TTL_H) return parsed;
+      }
+    } catch {}
+  }
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=temperature_2m,weathercode,windspeed_10m&timezone=Europe%2FParis&forecast_days=2`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('fetch failed');
+  const json = await res.json();
+  const h = json.hourly;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const tomStr   = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const toSlots = (prefix: string): HourSlot[] =>
+    HOURLY_SLOTS.map(hr => {
+      const idx = h.time.findIndex((t: string) => t === `${prefix}T${String(hr).padStart(2, '0')}:00`);
+      if (idx < 0) return { hour: `${hr}h`, code: 0, temp: 0, wind: 0 };
+      return {
+        hour: `${hr}h`,
+        code: h.weathercode[idx],
+        temp: Math.round(h.temperature_2m[idx]),
+        wind: Math.round(h.windspeed_10m[idx]),
+      };
+    });
+  const result: ZoneHourly = { today: toSlots(todayStr), tomorrow: toSlots(tomStr), ts: now };
+  if (Platform.OS === 'web') {
+    try { localStorage.setItem(key, JSON.stringify(result)); } catch {}
+  }
+  return result;
 }
 
 // ─── Terrain data ──────────────────────────────────────────────────────────────
@@ -145,7 +187,6 @@ const TERRAIN_BY_TREK: Record<string, TerrainCard[]> = {
     },
     CARDS_SOS,
   ],
-
   ayous: [
     {
       id: 'water', icon: '💧', title: "Points d'eau", meta: "Lacs d'Ayous — Ossau", defaultOpen: true,
@@ -161,7 +202,7 @@ const TERRAIN_BY_TREK: Record<string, TerrainCard[]> = {
       id: 'bivouac', icon: '⛺', title: 'Spots bivouac', meta: 'Zone Parc National',
       rows: [
         { icon: 'J1', label: "Plateau d'Arrioutort", sub: 'Terrain ouvert · Attention vents forts en crête', alt: '1950m' },
-        { icon: 'J1', label: "Lac Bersau", sub: 'Alternative si lac Gentau interdit · Belle vue sur Pic du Midi', alt: '2083m' },
+        { icon: 'J1', label: "Lac Bersau", sub: 'Alternative si lac Gentau interdit · Belle vue Pic du Midi', alt: '2083m' },
         { icon: 'J2', label: "Cabane pastorale de Cézy", sub: '4 personnes · Source à proximité · Non gardée', alt: '1680m' },
         { icon: '⚠️', label: 'Lacs Roumassot & Miey', sub: 'Bivouac interdit — zone pastorale protégée', warning: true },
         { icon: '⚠️', label: 'Lac Gentau (juil–sept)', sub: 'Survisité · Bivouac interdit · Aller au lac Bersau (+30 min)', warning: true },
@@ -182,7 +223,7 @@ const TERRAIN_BY_TREK: Record<string, TerrainCard[]> = {
       rows: [
         { icon: '✓', label: 'Parc National des Pyrénées', sub: 'Zone cœur · Bivouac autorisé 19h–9h uniquement' },
         { icon: '✓', label: 'Tarp / tente basse', sub: 'Hauteur max pratique ~1m · Pas de feu ni de chiens' },
-        { icon: '✗', label: 'Lacs Roumassot & Miey', sub: 'Zone pastorale — bivouac interdit toute l\'année' },
+        { icon: '✗', label: 'Lacs Roumassot & Miey', sub: "Zone pastorale — bivouac interdit toute l'année" },
         { icon: '✗', label: 'Lac Gentau (juil–sept)', sub: 'Bivouac interdit · Zone survisitée · Aller au lac Bersau' },
         { icon: '✗', label: 'Chiens interdits', sub: 'En zone cœur PNP · Même tenu en laisse' },
       ],
@@ -191,24 +232,104 @@ const TERRAIN_BY_TREK: Record<string, TerrainCard[]> = {
       id: 'maps', icon: '🗺', title: 'Cartes & navigation',
       rows: [
         { icon: '📱', label: 'OsmAnd / Komoot', sub: 'GPX Ayous_Boucle.gpx · Fonds IGN / OSM hors ligne' },
-        { icon: '📄', label: '1547OT — Ossau', sub: 'Haute-Vallée d\'Ossau · Carte IGN 1:25 000 · Indispensable' },
+        { icon: '📄', label: '1547OT — Ossau', sub: "Haute-Vallée d'Ossau · Carte IGN 1:25 000 · Indispensable" },
         { icon: '📄', label: 'Editions Rando', sub: 'Carte Pyrénées n°3 — Béarn · Réf. 03' },
-        { icon: '🌐', label: 'Impression cartes', sub: 'geoportail.gouv.fr → Imprimer → A4 · 1:25 000' },
       ],
     },
     CARDS_SOS,
   ],
 };
-
-// Artouste uses same terrain as Ayous (same mountain zone)
 TERRAIN_BY_TREK.artouste = TERRAIN_BY_TREK.ayous;
 
-// Fallback when no trek selected — merge both without duplicating SOS
 const ALL_TERRAIN_CARDS: TerrainCard[] = [
   ...TERRAIN_BY_TREK.gr10.filter(c => c.id !== 'sos'),
   ...TERRAIN_BY_TREK.ayous.filter(c => c.id !== 'sos'),
   CARDS_SOS,
 ];
+
+// ─── Premiers secours ─────────────────────────────────────────────────────────
+
+interface PsStep { icon: string; text: string; danger?: boolean; }
+interface PsCard  { id: string; icon: string; title: string; urgent?: boolean; steps: PsStep[]; }
+
+const PREMIERS_SECOURS: PsCard[] = [
+  {
+    id: 'tique', icon: '🦔', title: 'Tique',
+    steps: [
+      { icon: '1', text: 'Saisir au tire-tique en tournant (sens anti-horaire) — jamais avec les doigts' },
+      { icon: '2', text: 'Ne pas écraser, brûler ou mettre de substance sur la tique' },
+      { icon: '3', text: 'Désinfecter la zone avec antiseptique' },
+      { icon: '⚠️', text: 'Surveiller 3 semaines : rougeur en anneau = consulter médecin' },
+    ],
+  },
+  {
+    id: 'vipere', icon: '🐍', title: 'Morsure de vipère', urgent: true,
+    steps: [
+      { icon: '1', text: 'Rester calme — immobiliser le membre mordu · NE PAS marcher' },
+      { icon: '2', text: 'Enlever montres, bracelets, bagues (gonflement prévisible)' },
+      { icon: '3', text: 'Appeler le 15 (SAMU) ou le 112' },
+      { icon: '✗', text: 'NE PAS inciser, sucer, garrotter ni mettre de glace', danger: true },
+    ],
+  },
+  {
+    id: 'ampoule', icon: '🩹', title: 'Ampoule',
+    steps: [
+      { icon: '1', text: '< 2 cm : ne pas percer — couvrir Compeed ou bande Mölnlycke' },
+      { icon: '2', text: '> 2 cm : désinfecter, percer à la base avec aiguille stérile, vider' },
+      { icon: '3', text: 'Conserver la peau (protection naturelle) — appliquer Compeed' },
+    ],
+  },
+  {
+    id: 'hypothermie', icon: '🥶', title: 'Hypothermie', urgent: true,
+    steps: [
+      { icon: '⚠️', text: 'Signes : frissons intenses, confusion, maladresse, somnolence' },
+      { icon: '1', text: "Abri immédiat hors vent et pluie" },
+      { icon: '2', text: "Enlever vêtements mouillés — ajouter couches sèches + sursac" },
+      { icon: '3', text: "Boisson chaude sucrée si personne consciente et peut avaler" },
+      { icon: '4', text: "Confusion ou inconscience → appeler le 112 immédiatement", danger: true },
+    ],
+  },
+  {
+    id: 'entorse', icon: '🦵', title: 'Entorse cheville',
+    steps: [
+      { icon: 'R', text: 'Repos : arrêt immédiat de la marche' },
+      { icon: 'I', text: 'Ice : froid 15 min (chiffon humide froid, jamais directement)' },
+      { icon: 'C', text: 'Compression : strapping ou bandage élastique' },
+      { icon: 'E', text: 'Élévation : surélevier le pied au repos' },
+      { icon: '⚠️', text: 'Douleur intense ou déformation → 112 · Ne pas forcer' },
+    ],
+  },
+  {
+    id: 'deshydratation', icon: '💧', title: 'Déshydratation',
+    steps: [
+      { icon: '⚠️', text: 'Signes : urine foncée, maux de tête, vertiges, fatigue soudaine' },
+      { icon: '1', text: "Mettre à l'ombre immédiatement — stopper l'effort" },
+      { icon: '2', text: "Boire 500 ml eau + pincée de sel + sucre (électrolytes)" },
+      { icon: '3', text: "Attendre 30 min minimum avant de reprendre la marche" },
+      { icon: '💡', text: "Prévention : boire 500 ml/h · plus par forte chaleur ou altitude" },
+    ],
+  },
+];
+
+// ─── Numéros utiles ───────────────────────────────────────────────────────────
+
+interface NumItem { icon: string; label: string; sub: string; tel: string; }
+
+const NUMEROS_BY_TREK: Record<string, NumItem[]> = {
+  gr10: [
+    { icon: '🚌', label: 'TAD Txik-Txak', sub: 'Réservation transport · Lun–Sam 7h–20h', tel: '0547757664' },
+    { icon: '📍', label: 'Office Tourisme Sare', sub: 'Infos locales · Lun–Sam 9h–12h / 14h–18h', tel: '0559542014' },
+    { icon: '🚕', label: 'Taxi Hendaye', sub: 'Hendaye – Biriatou · Sur réservation', tel: '0559200817' },
+    { icon: '🚓', label: 'Gendarmerie Hendaye', sub: 'Non-urgence', tel: '0559200817' },
+  ],
+  ayous: [
+    { icon: '🚡', label: 'Artouste / Télécabine', sub: 'Horaires, billets et infos', tel: '0559053699' },
+    { icon: '🏠', label: 'Maison du PNP Laruns', sub: 'Parc National Pyrénées · Info terrain', tel: '0559054159' },
+    { icon: '🚓', label: 'Gendarmerie Laruns', sub: 'Non-urgence', tel: '0559053117' },
+    { icon: '🚕', label: 'Taxi Ossau', sub: 'Laruns et alentours · Sur réservation', tel: '0559053117' },
+  ],
+};
+NUMEROS_BY_TREK.artouste = NUMEROS_BY_TREK.ayous;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -223,12 +344,18 @@ export default function TerrainScreen() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>(
     Object.fromEntries(terrainCards.filter(c => c.defaultOpen).map(c => [c.id, true]))
   );
-  const [weather, setWeather] = useState<Record<string, ZoneResult | null>>({});
+  const [psExpanded, setPsExpanded] = useState<Record<string, boolean>>({});
+  const [weather, setWeather]       = useState<Record<string, ZoneResult | null>>({});
+  const [hourly, setHourly]         = useState<Record<string, ZoneHourly | null>>({});
+  const [showHourly, setShowHourly] = useState<Record<string, boolean>>({});
   const [refreshing, setRefreshing] = useState(false);
 
   const loadWeather = useCallback(async (force = false) => {
     if (force && Platform.OS === 'web') {
-      ALL_ZONES.forEach(z => { try { localStorage.removeItem(cacheKey(z.id)); } catch {} });
+      ALL_ZONES.forEach(z => {
+        try { localStorage.removeItem(cacheKey(z.id)); } catch {}
+        try { localStorage.removeItem(cacheKeyH(z.id)); } catch {}
+      });
     }
     const results = await Promise.all(
       ALL_ZONES.map(z => fetchZone(z.id, z.lat, z.lng).catch(() => null))
@@ -245,9 +372,17 @@ export default function TerrainScreen() {
     loadWeather(true).finally(() => setRefreshing(false));
   }, [loadWeather]);
 
+  const toggleHourly = useCallback(async (zoneId: string, lat: number, lng: number) => {
+    const next = !showHourly[zoneId];
+    setShowHourly(prev => ({ ...prev, [zoneId]: next }));
+    if (next && !hourly[zoneId]) {
+      const h = await fetchHourly(zoneId, lat, lng).catch(() => null);
+      setHourly(prev => ({ ...prev, [zoneId]: h }));
+    }
+  }, [showHourly, hourly]);
+
   const toggle = (id: string) => setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
 
-  // Weather zone(s) to show
   const activeZone = activeTrekId ? ZONE_BY_TREK[activeTrekId] : null;
   const zonesToShow = activeZone
     ? [{ id: activeTrekId!, ...activeZone }]
@@ -255,6 +390,8 @@ export default function TerrainScreen() {
 
   const firstResult = weather[ALL_ZONES[0].id];
   const cacheAge = firstResult ? ageLabel(firstResult.ts) : null;
+
+  const numéros = activeTrekId ? (NUMEROS_BY_TREK[activeTrekId] ?? []) : [];
 
   return (
     <ScrollView
@@ -292,6 +429,10 @@ export default function TerrainScreen() {
 
         {zonesToShow.map(zone => {
           const result = weather[zone.id];
+          const hData  = hourly[zone.id];
+          const hOpen  = !!showHourly[zone.id];
+          const zLat   = zone.lat ?? ZONE_BY_TREK[zone.id]?.lat ?? 0;
+          const zLng   = zone.lng ?? ZONE_BY_TREK[zone.id]?.lng ?? 0;
           return (
             <View key={zone.id} style={s.card}>
               <View style={s.cardHeader}>
@@ -303,20 +444,62 @@ export default function TerrainScreen() {
                 {!result ? (
                   <Text style={s.loadingText}>Chargement…</Text>
                 ) : (
-                  <View style={s.weatherGrid}>
-                    {result.days.map((day, di) => {
-                      const good = day.code <= 2;
-                      const bad  = day.code >= 51;
-                      return (
-                        <View key={di} style={[s.weatherDay, good && s.weatherGood, bad && s.weatherBad]}>
-                          <Text style={s.weatherEmoji}>{WMO_EMOJI[day.code] ?? '🌡'}</Text>
-                          <Text style={s.weatherLabel}>{DAY_LABELS[di]}</Text>
-                          <Text style={s.weatherTemp}>{day.tMin}–{day.tMax}°C</Text>
-                          <Text style={s.weatherDesc} numberOfLines={1}>{WMO_LABEL[day.code] ?? '—'}</Text>
-                        </View>
-                      );
-                    })}
-                  </View>
+                  <>
+                    <View style={s.weatherGrid}>
+                      {result.days.map((day, di) => {
+                        const good = day.code <= 2;
+                        const bad  = day.code >= 51;
+                        return (
+                          <View key={di} style={[s.weatherDay, good && s.weatherGood, bad && s.weatherBad]}>
+                            <Text style={s.weatherEmoji}>{WMO_EMOJI[day.code] ?? '🌡'}</Text>
+                            <Text style={s.weatherLabel}>{DAY_LABELS[di]}</Text>
+                            <Text style={s.weatherTemp}>{day.tMin}–{day.tMax}°C</Text>
+                            <Text style={s.weatherDesc} numberOfLines={1}>{WMO_LABEL[day.code] ?? '—'}</Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+
+                    {/* Hourly toggle */}
+                    <TouchableOpacity
+                      style={s.hourlyToggle}
+                      onPress={() => toggleHourly(zone.id, zLat, zLng)}
+                    >
+                      <Text style={s.hourlyToggleText}>
+                        {hOpen ? '▾ Masquer' : '▸ Prévisions horaires'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    {hOpen && (
+                      <View style={s.hourlySection}>
+                        {(['today', 'tomorrow'] as const).map((day, di) => {
+                          const slots = hData ? hData[day] : null;
+                          return (
+                            <View key={day} style={di === 0 ? { marginBottom: 8 } : {}}>
+                              <Text style={s.hourlyDayLabel}>{di === 0 ? "Aujourd'hui" : 'Demain'}</Text>
+                              {!slots ? (
+                                <Text style={s.loadingText}>Chargement…</Text>
+                              ) : (
+                                <View style={s.hourlyGrid}>
+                                  {slots.map((slot, si) => {
+                                    const bad = slot.code >= 51;
+                                    return (
+                                      <View key={si} style={[s.hourlySlot, bad && s.hourlySlotBad]}>
+                                        <Text style={s.hourlyHour}>{slot.hour}</Text>
+                                        <Text style={s.hourlyEmoji}>{WMO_EMOJI[slot.code] ?? '🌡'}</Text>
+                                        <Text style={s.hourlyTemp}>{slot.temp}°</Text>
+                                        <Text style={s.hourlyWind}>💨{slot.wind}</Text>
+                                      </View>
+                                    );
+                                  })}
+                                </View>
+                              )}
+                            </View>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </>
                 )}
               </View>
             </View>
@@ -345,7 +528,6 @@ export default function TerrainScreen() {
               {card.meta && <Text style={s.cardMeta}>{card.meta}</Text>}
               <Text style={s.chevron}>{isOpen ? '▾' : '▸'}</Text>
             </TouchableOpacity>
-
             {isOpen && (
               <View style={s.cardBody}>
                 {card.rows.map((row, ri) => {
@@ -371,9 +553,7 @@ export default function TerrainScreen() {
                         {row.sub && <Text style={s.infoSub}>{row.sub}</Text>}
                       </View>
                       {row.alt && (
-                        <View style={s.altBadge}>
-                          <Text style={s.altText}>{row.alt}</Text>
-                        </View>
+                        <View style={s.altBadge}><Text style={s.altText}>{row.alt}</Text></View>
                       )}
                     </View>
                   );
@@ -383,6 +563,69 @@ export default function TerrainScreen() {
           </View>
         );
       })}
+
+      {/* ── Premiers secours ── */}
+      <Text style={[s.sectionTitle, { marginTop: 8 }]}>🩺 Premiers secours</Text>
+
+      {PREMIERS_SECOURS.map(card => {
+        const isOpen = !!psExpanded[card.id];
+        return (
+          <View key={card.id} style={[s.card, card.urgent && s.cardUrgent]}>
+            <TouchableOpacity
+              style={s.cardHeader}
+              onPress={() => setPsExpanded(prev => ({ ...prev, [card.id]: !prev[card.id] }))}
+              activeOpacity={0.75}
+            >
+              <Text style={s.cardIcon}>{card.icon}</Text>
+              <Text style={s.cardTitle}>{card.title}</Text>
+              {card.urgent && (
+                <View style={s.urgentBadge}><Text style={s.urgentText}>URGENT</Text></View>
+              )}
+              <Text style={s.chevron}>{isOpen ? '▾' : '▸'}</Text>
+            </TouchableOpacity>
+            {isOpen && (
+              <View style={s.cardBody}>
+                {card.steps.map((step, si) => (
+                  <View key={si} style={[s.psStep, step.danger && s.psStepDanger, si === card.steps.length - 1 && { borderBottomWidth: 0 }]}>
+                    <View style={[s.psStepBadge, step.danger && s.psStepBadgeDanger]}>
+                      <Text style={[s.psStepBadgeText, step.danger && { color: C.accent }]}>{step.icon}</Text>
+                    </View>
+                    <Text style={[s.psStepText, step.danger && { color: C.accent }]}>{step.text}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        );
+      })}
+
+      {/* ── Numéros utiles ── */}
+      {numéros.length > 0 && (
+        <>
+          <Text style={[s.sectionTitle, { marginTop: 8 }]}>📞 Numéros utiles</Text>
+          <View style={s.card}>
+            <View style={s.cardBody}>
+              {numéros.map((item, ii) => (
+                <TouchableOpacity
+                  key={ii}
+                  style={[s.numRow, ii === numéros.length - 1 && { borderBottomWidth: 0 }]}
+                  onPress={() => Linking.openURL(`tel:${item.tel}`)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={s.numIcon}>{item.icon}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.numLabel}>{item.label}</Text>
+                    <Text style={s.numSub}>{item.sub}</Text>
+                  </View>
+                  <View style={s.numTelBadge}>
+                    <Text style={s.numTel}>{item.tel.replace(/(\d{2})(?=\d)/g, '$1 ').trim()}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </>
+      )}
     </ScrollView>
   );
 }
@@ -399,20 +642,16 @@ const s = StyleSheet.create({
   trekDot: { width: 8, height: 8, borderRadius: 4 },
   trekBannerLabel: { fontFamily: FF.mono, fontSize: 8, letterSpacing: 1.2, textTransform: 'uppercase', color: C.ink, opacity: 0.4 },
   trekBannerName: { fontFamily: FF.display, fontSize: 13, fontWeight: '600', color: C.ink, letterSpacing: -0.3 },
-
-  noTrekBanner: {
-    backgroundColor: C.paper3, borderRadius: 8, borderWidth: 1, borderColor: C.line,
-    padding: 10, marginBottom: 12,
-  },
+  noTrekBanner: { backgroundColor: C.paper3, borderRadius: 8, borderWidth: 1, borderColor: C.line, padding: 10, marginBottom: 12 },
   noTrekText: { fontFamily: FF.mono, fontSize: 10, color: C.ink, opacity: 0.5, lineHeight: 15 },
 
   meteoSection: { marginBottom: 16 },
   meteoHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   cacheAge: { fontFamily: FF.mono, fontSize: 9, color: C.ink, opacity: 0.4, letterSpacing: 0.3 },
-
   sectionTitle: { fontFamily: FF.display, fontSize: 18, fontWeight: '600', color: C.ink, letterSpacing: -0.5, marginBottom: 10 },
 
   card: { backgroundColor: C.paper2, borderWidth: 1, borderColor: C.line, borderRadius: 10, marginBottom: 10, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.07, shadowRadius: 6, elevation: 2 },
+  cardUrgent: { borderColor: 'rgba(200,80,42,0.35)' },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12 },
   cardIcon: { fontSize: 16 },
   cardTitle: { fontFamily: FF.display, fontSize: 14, fontWeight: '600', color: C.ink, flex: 1, letterSpacing: -0.3 },
@@ -431,6 +670,18 @@ const s = StyleSheet.create({
   weatherTemp: { fontFamily: FF.mono, fontSize: 12, fontWeight: '500', color: C.ink },
   weatherDesc: { fontFamily: FF.mono, fontSize: 8, color: C.ink, opacity: 0.6, marginTop: 2, textAlign: 'center' },
 
+  hourlyToggle: { marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: C.line2, alignItems: 'center' },
+  hourlyToggleText: { fontFamily: FF.mono, fontSize: 9, color: C.blue, letterSpacing: 0.3 },
+  hourlySection: { marginTop: 8 },
+  hourlyDayLabel: { fontFamily: FF.mono, fontSize: 8, letterSpacing: 1.2, textTransform: 'uppercase', color: C.ink, opacity: 0.4, marginBottom: 6 },
+  hourlyGrid: { flexDirection: 'row', gap: 4 },
+  hourlySlot: { flex: 1, backgroundColor: C.paper3, borderRadius: 6, padding: 6, alignItems: 'center', borderWidth: 1, borderColor: C.line },
+  hourlySlotBad: { borderColor: '#fca5a5' },
+  hourlyHour: { fontFamily: FF.mono, fontSize: 8, color: C.ink, opacity: 0.5, marginBottom: 2 },
+  hourlyEmoji: { fontSize: 14, marginBottom: 2 },
+  hourlyTemp: { fontFamily: FF.mono, fontSize: 10, fontWeight: '500', color: C.ink },
+  hourlyWind: { fontFamily: FF.mono, fontSize: 8, color: C.ink, opacity: 0.45, marginTop: 1 },
+
   sourcesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
   sourceChip: { backgroundColor: C.paper3, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: C.line },
   sourceText: { fontFamily: FF.mono, fontSize: 9, color: C.ink, opacity: 0.5 },
@@ -440,9 +691,23 @@ const s = StyleSheet.create({
   infoLabel: { fontFamily: FF.mono, fontSize: 12, color: C.ink, fontWeight: '500' },
   infoSub: { fontFamily: FF.mono, fontSize: 10, color: C.ink, opacity: 0.5, marginTop: 1 },
   sosNumber: { fontFamily: FF.display, fontSize: 20, fontWeight: '600', color: C.ink },
-
   altBadge: { backgroundColor: C.paper3, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: C.line, alignSelf: 'flex-start', marginTop: 2 },
   altText: { fontFamily: FF.mono, fontSize: 10, color: C.ink },
-
   warningRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 8, borderRadius: 6, borderWidth: 1, borderColor: C.accent, backgroundColor: 'rgba(200,80,42,0.05)', marginBottom: 4 },
+
+  urgentBadge: { backgroundColor: 'rgba(200,80,42,0.12)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, marginRight: 4 },
+  urgentText: { fontFamily: FF.mono, fontSize: 7, letterSpacing: 1, color: C.accent, fontWeight: '700' },
+  psStep: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: C.line2 },
+  psStepDanger: { backgroundColor: 'rgba(200,80,42,0.04)', borderRadius: 6, borderBottomWidth: 0, marginBottom: 4 },
+  psStepBadge: { width: 22, height: 22, borderRadius: 11, backgroundColor: C.paper3, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  psStepBadgeDanger: { borderColor: C.accent, backgroundColor: 'rgba(200,80,42,0.08)' },
+  psStepBadgeText: { fontFamily: FF.mono, fontSize: 9, fontWeight: '700', color: C.ink },
+  psStepText: { fontFamily: FF.mono, fontSize: 11, color: C.ink, flex: 1, lineHeight: 16, paddingTop: 3 },
+
+  numRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.line2 },
+  numIcon: { fontSize: 16, width: 24, textAlign: 'center' },
+  numLabel: { fontFamily: FF.mono, fontSize: 12, color: C.ink, fontWeight: '500' },
+  numSub: { fontFamily: FF.mono, fontSize: 9, color: C.ink, opacity: 0.45, marginTop: 1 },
+  numTelBadge: { backgroundColor: C.blue, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5 },
+  numTel: { fontFamily: FF.mono, fontSize: 10, color: '#fff', letterSpacing: 0.5 },
 });
