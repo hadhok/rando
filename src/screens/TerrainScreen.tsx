@@ -38,6 +38,11 @@ const ALL_ZONES = [
   { id: 'ossau', ...ZONE_BY_TREK.ayous },
 ];
 
+// Maps trek IDs to weather zone IDs (ayous + artouste share the 'ossau' zone)
+const TREK_TO_WEATHER_ZONE: Record<string, string> = {
+  gr10: 'gr10', ayous: 'ossau', artouste: 'ossau',
+};
+
 const CACHE_TTL       = 3 * 60 * 60 * 1000;
 const CACHE_TTL_H     = 60 * 60 * 1000;
 
@@ -383,9 +388,9 @@ export default function TerrainScreen() {
 
   const toggle = (id: string) => setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
 
-  const activeZone = activeTrekId ? ZONE_BY_TREK[activeTrekId] : null;
-  const zonesToShow = activeZone
-    ? [{ id: activeTrekId!, ...activeZone }]
+  const weatherZoneId = activeTrekId ? (TREK_TO_WEATHER_ZONE[activeTrekId] ?? activeTrekId) : null;
+  const zonesToShow = weatherZoneId
+    ? ALL_ZONES.filter(z => z.id === weatherZoneId)
     : ALL_ZONES;
 
   const firstResult = weather[ALL_ZONES[0].id];
@@ -428,21 +433,27 @@ export default function TerrainScreen() {
         </View>
 
         {zonesToShow.map(zone => {
-          const result = weather[zone.id];
+          const result = weather[zone.id];       // undefined = loading, null = error, ZoneResult = ok
           const hData  = hourly[zone.id];
           const hOpen  = !!showHourly[zone.id];
-          const zLat   = zone.lat ?? ZONE_BY_TREK[zone.id]?.lat ?? 0;
-          const zLng   = zone.lng ?? ZONE_BY_TREK[zone.id]?.lng ?? 0;
+          const zLat   = zone.lat;
+          const zLng   = zone.lng;
+          const isLoading = result === undefined;
+          const isError   = result === null;
           return (
             <View key={zone.id} style={s.card}>
               <View style={s.cardHeader}>
-                <Text style={s.cardIcon}>{activeTrekId === zone.id ? '▶' : '📍'}</Text>
+                <Text style={s.cardIcon}>{weatherZoneId === zone.id ? '▶' : '📍'}</Text>
                 <Text style={s.cardTitle}>{zone.label}</Text>
                 <Text style={s.cardMeta}>{zone.sub}</Text>
               </View>
               <View style={s.cardBody}>
-                {!result ? (
+                {isLoading ? (
                   <Text style={s.loadingText}>Chargement…</Text>
+                ) : isError ? (
+                  <TouchableOpacity style={s.errorRow} onPress={onRefresh}>
+                    <Text style={s.errorText}>⚠ Erreur réseau · Tirer pour rafraîchir</Text>
+                  </TouchableOpacity>
                 ) : (
                   <>
                     <View style={s.weatherGrid}>
@@ -660,6 +671,8 @@ const s = StyleSheet.create({
   cardBody: { borderTopWidth: 1, borderTopColor: C.line, padding: 12 },
 
   loadingText: { fontFamily: FF.mono, fontSize: 11, color: C.ink, opacity: 0.4, textAlign: 'center', paddingVertical: 12 },
+  errorRow: { paddingVertical: 12, alignItems: 'center' },
+  errorText: { fontFamily: FF.mono, fontSize: 10, color: C.accent, opacity: 0.8 },
 
   weatherGrid: { flexDirection: 'row', gap: 8 },
   weatherDay: { flex: 1, backgroundColor: C.paper3, borderRadius: 8, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: C.line },
