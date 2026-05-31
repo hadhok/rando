@@ -51,8 +51,8 @@ interface HourSlot     { hour: string; code: number; temp: number; wind: number;
 interface ZoneResult   { days: DayForecast[]; ts: number; fromCache: boolean; }
 interface ZoneHourly   { today: HourSlot[]; tomorrow: HourSlot[]; ts: number; }
 
-function cacheKey(id: string)  { return `meteo_${id}_v2`; }
-function cacheKeyH(id: string) { return `meteo_h_${id}_v1`; }
+function cacheKey(id: string)  { return `meteo_${id}_v3`; }
+function cacheKeyH(id: string) { return `meteo_h_${id}_v2`; }
 function ageLabel(ts: number): string {
   const min = Math.round((Date.now() - ts) / 60000);
   if (min < 2) return 'À l\'instant';
@@ -60,7 +60,13 @@ function ageLabel(ts: number): string {
   return `Il y a ${Math.round(min / 60)}h`;
 }
 
-async function fetchZone(id: string, lat: number, lng: number): Promise<ZoneResult> {
+function fetchWithTimeout(url: string, ms = 10000): Promise<Response> {
+  const ctrl = new AbortController();
+  const id = setTimeout(() => ctrl.abort(), ms);
+  return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(id));
+}
+
+async function fetchZone(id: string, lat: number, lng: number): Promise<ZoneResult | null> {
   const key = cacheKey(id);
   const now = Date.now();
   if (Platform.OS === 'web') {
@@ -72,23 +78,28 @@ async function fetchZone(id: string, lat: number, lng: number): Promise<ZoneResu
       }
     } catch {}
   }
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=Europe%2FParis&forecast_days=3`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('fetch failed');
-  const json = await res.json();
-  const d = json.daily;
-  const days: DayForecast[] = d.time.map((_: string, i: number) => ({
-    tMax: Math.round(d.temperature_2m_max[i]),
-    tMin: Math.round(d.temperature_2m_min[i]),
-    code: d.weathercode[i],
-  }));
-  if (Platform.OS === 'web') {
-    try { localStorage.setItem(key, JSON.stringify({ ts: now, data: days })); } catch {}
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=3`;
+    const res  = await fetchWithTimeout(url);
+    if (!res.ok) return null;
+    const json = await res.json();
+    const d = json.daily;
+    if (!d?.time) return null;
+    const days: DayForecast[] = d.time.map((_: string, i: number) => ({
+      tMax: Math.round(d.temperature_2m_max?.[i] ?? 0),
+      tMin: Math.round(d.temperature_2m_min?.[i] ?? 0),
+      code: d.weather_code?.[i] ?? 0,
+    }));
+    if (Platform.OS === 'web') {
+      try { localStorage.setItem(key, JSON.stringify({ ts: now, data: days })); } catch {}
+    }
+    return { days, ts: now, fromCache: false };
+  } catch {
+    return null;
   }
-  return { days, ts: now, fromCache: false };
 }
 
-async function fetchHourly(id: string, lat: number, lng: number): Promise<ZoneHourly> {
+async function fetchHourly(id: string, lat: number, lng: number): Promise<ZoneHourly | null> {
   const key = cacheKeyH(id);
   const now = Date.now();
   if (Platform.OS === 'web') {
@@ -100,29 +111,34 @@ async function fetchHourly(id: string, lat: number, lng: number): Promise<ZoneHo
       }
     } catch {}
   }
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=temperature_2m,weathercode,windspeed_10m&timezone=Europe%2FParis&forecast_days=2`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('fetch failed');
-  const json = await res.json();
-  const h = json.hourly;
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const tomStr   = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-  const toSlots = (prefix: string): HourSlot[] =>
-    HOURLY_SLOTS.map(hr => {
-      const idx = h.time.findIndex((t: string) => t === `${prefix}T${String(hr).padStart(2, '0')}:00`);
-      if (idx < 0) return { hour: `${hr}h`, code: 0, temp: 0, wind: 0 };
-      return {
-        hour: `${hr}h`,
-        code: h.weathercode[idx],
-        temp: Math.round(h.temperature_2m[idx]),
-        wind: Math.round(h.windspeed_10m[idx]),
-      };
-    });
-  const result: ZoneHourly = { today: toSlots(todayStr), tomorrow: toSlots(tomStr), ts: now };
-  if (Platform.OS === 'web') {
-    try { localStorage.setItem(key, JSON.stringify(result)); } catch {}
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=temperature_2m,weather_code,wind_speed_10m&timezone=auto&forecast_days=2`;
+    const res  = await fetchWithTimeout(url);
+    if (!res.ok) return null;
+    const json = await res.json();
+    const h = json.hourly;
+    if (!h?.time) return null;
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const tomStr   = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    const toSlots = (prefix: string): HourSlot[] =>
+      HOURLY_SLOTS.map(hr => {
+        const idx = h.time.findIndex((t: string) => t === `${prefix}T${String(hr).padStart(2, '0')}:00`);
+        if (idx < 0) return { hour: `${hr}h`, code: 0, temp: 0, wind: 0 };
+        return {
+          hour: `${hr}h`,
+          code:  h.weather_code?.[idx] ?? 0,
+          temp:  Math.round(h.temperature_2m?.[idx] ?? 0),
+          wind:  Math.round(h.wind_speed_10m?.[idx] ?? 0),
+        };
+      });
+    const result: ZoneHourly = { today: toSlots(todayStr), tomorrow: toSlots(tomStr), ts: now };
+    if (Platform.OS === 'web') {
+      try { localStorage.setItem(key, JSON.stringify(result)); } catch {}
+    }
+    return result;
+  } catch {
+    return null;
   }
-  return result;
 }
 
 // ─── Terrain data ──────────────────────────────────────────────────────────────
@@ -363,7 +379,7 @@ export default function TerrainScreen() {
       });
     }
     const results = await Promise.all(
-      ALL_ZONES.map(z => fetchZone(z.id, z.lat, z.lng).catch(() => null))
+      ALL_ZONES.map(z => fetchZone(z.id, z.lat, z.lng))
     );
     const map: Record<string, ZoneResult | null> = {};
     ALL_ZONES.forEach((z, i) => { map[z.id] = results[i]; });
@@ -381,7 +397,7 @@ export default function TerrainScreen() {
     const next = !showHourly[zoneId];
     setShowHourly(prev => ({ ...prev, [zoneId]: next }));
     if (next && !hourly[zoneId]) {
-      const h = await fetchHourly(zoneId, lat, lng).catch(() => null);
+      const h = await fetchHourly(zoneId, lat, lng);
       setHourly(prev => ({ ...prev, [zoneId]: h }));
     }
   }, [showHourly, hourly]);
