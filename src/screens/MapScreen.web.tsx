@@ -49,6 +49,17 @@ const bivouacIcon = new L.DivIcon({
 
 const COLORS = { trace: '#E63946', bg: '#F1FAEE', gpx: '#8338EC' };
 
+const SYNC_DOT: Record<string, string> = {
+  syncing: '#f59e0b',
+  ok:      '#22c55e',
+  error:   '#ef4444',
+};
+const SYNC_LABEL: Record<string, string> = {
+  syncing: '↑ Sync…',
+  ok:      '✓ Sauvegardé',
+  error:   '⚠ Erreur sync',
+};
+
 function FitBoundsToGpx({ points }: { points: Array<[number, number]> | null }) {
   const map = useMap();
   useEffect(() => {
@@ -263,7 +274,7 @@ export default function MapScreen() {
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [showDlPanel, setShowDlPanel] = useState(false);
   const [showSync, setShowSync] = useState(false);
-  const { gpxTrack, setGpxTrack, syncCode } = useGpx();
+  const { gpxTrack, setGpxTrack, syncCode, syncStatus } = useGpx();
   const [gpxError, setGpxError] = useState('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -440,6 +451,14 @@ export default function MapScreen() {
           <View style={styles.gpxInfo}>
             <Text style={styles.gpxInfoName} numberOfLines={1}>{gpxTrack.name}</Text>
             <Text style={styles.gpxInfoPoints}>{gpxTrack.points.length} pts</Text>
+            {syncStatus !== 'idle' && (
+              <View style={styles.gpxSyncRow}>
+                <View style={[styles.gpxSyncDot, { backgroundColor: SYNC_DOT[syncStatus] }]} />
+                <Text style={[styles.gpxSyncText, { color: SYNC_DOT[syncStatus] }]}>
+                  {SYNC_LABEL[syncStatus]}
+                </Text>
+              </View>
+            )}
             <TouchableOpacity onPress={() => setGpxTrack(null)}>
               <Text style={styles.gpxClearBtn}>✕ Supprimer</Text>
             </TouchableOpacity>
@@ -509,6 +528,9 @@ const styles = StyleSheet.create({
   },
   gpxInfoName: { fontSize: 12, color: '#264653', fontWeight: '600', maxWidth: 140 },
   gpxInfoPoints: { fontSize: 11, color: '#888' },
+  gpxSyncRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  gpxSyncDot: { width: 6, height: 6, borderRadius: 3 },
+  gpxSyncText: { fontSize: 10, fontWeight: '600' },
   gpxClearBtn: { fontSize: 11, color: '#E63946', fontWeight: '600' },
   gpxErrorBanner: {
     position: 'absolute', bottom: 60, left: 12, zIndex: 1000,
