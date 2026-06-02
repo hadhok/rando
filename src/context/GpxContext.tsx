@@ -193,10 +193,15 @@ export function GpxProvider({ children }: { children: React.ReactNode }) {
           if (Object.keys(rNotes).length > 0) { stateRef.current.notes = rNotes; setTrekNotesState(rNotes); AsyncStorage.setItem(KEY_NOTES, JSON.stringify(rNotes)); }
           const rDates = remote.trek_dates ?? {};
           if (Object.keys(rDates).length > 0) { stateRef.current.dates = rDates; setTrekDatesState(rDates); AsyncStorage.setItem(KEY_DATES, JSON.stringify(rDates)); }
-          const hasLocal = localGpx || localIt || localActive || Object.keys(localNotes).length > 0 || Object.keys(localDates).length > 0;
-          if (!remote.gpx_track && !remote.itineraire && !remote.active_trek && hasLocal) {
+          // Push local data that Supabase is missing (field-by-field check)
+          const needsPush = (localGpx && !remote.gpx_track) ||
+            (localIt && !remote.itineraire) ||
+            (localActive && !remote.active_trek) ||
+            (Object.keys(localNotes).length > 0 && Object.keys(rNotes).length === 0) ||
+            (Object.keys(localDates).length > 0 && Object.keys(rDates).length === 0);
+          if (needsPush) {
             setSyncStatus('syncing');
-            sbPush(code, localGpx, localIt, localNotes, localActive, localDates).then(ok => setSyncStatus(ok ? 'ok' : 'error'));
+            sbPush(code, stateRef.current.gpx, stateRef.current.it, stateRef.current.notes, stateRef.current.active, stateRef.current.dates).then(ok => setSyncStatus(ok ? 'ok' : 'error'));
           }
         } else if (localGpx || localIt || localActive || Object.keys(localNotes).length > 0 || Object.keys(localDates).length > 0) {
           setSyncStatus('syncing');
