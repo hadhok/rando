@@ -55,6 +55,7 @@ export default function JournalScreen() {
     activeTrekId, trekDates,
     stagesDone, setStagesDone,
     journalEntries, setJournalEntry, deleteJournalEntry,
+    isInitializing,
   } = useGpx();
 
   const activeTrek = activeTrekId ? TREKS.find(t => t.id === activeTrekId) : null;
@@ -165,9 +166,19 @@ export default function JournalScreen() {
         <ScrollView contentContainerStyle={s.scroll}>
           <Text style={s.pageTitle}>Journal</Text>
           <View style={s.emptyState}>
-            <Text style={s.emptyIcon}>⛰</Text>
-            <Text style={s.emptyTitle}>Aucun trek actif</Text>
-            <Text style={s.emptyText}>Sélectionnez un trek dans l'onglet Treks pour accéder au tracker et au journal.</Text>
+            {isInitializing ? (
+              <>
+                <Text style={s.emptyIcon}>⏳</Text>
+                <Text style={s.emptyTitle}>Chargement…</Text>
+                <Text style={s.emptyText}>Récupération de vos données en cours.</Text>
+              </>
+            ) : (
+              <>
+                <Text style={s.emptyIcon}>⛰</Text>
+                <Text style={s.emptyTitle}>Aucun trek actif</Text>
+                <Text style={s.emptyText}>Sélectionnez un trek dans l'onglet Treks pour accéder au tracker et au journal.</Text>
+              </>
+            )}
           </View>
         </ScrollView>
       </View>

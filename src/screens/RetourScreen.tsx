@@ -76,7 +76,7 @@ const TREK_TO_CARD: Record<string, string> = {
 };
 
 export default function RetourScreen() {
-  const { activeTrekId } = useGpx();
+  const { activeTrekId, isInitializing } = useGpx();
   const activeTrek = activeTrekId ? TREKS.find(t => t.id === activeTrekId) : null;
 
   const visibleCards = activeTrekId
@@ -101,11 +101,11 @@ export default function RetourScreen() {
               <Text style={s.trekBannerName}>{activeTrek.name}</Text>
             </View>
           </View>
-        ) : (
+        ) : !isInitializing ? (
           <View style={s.noTrekBanner}>
             <Text style={s.noTrekText}>Sélectionnez un trek dans l'onglet Treks pour filtrer les retours.</Text>
           </View>
-        )}
+        ) : null}
 
         <Text style={s.sectionTitle}>
           {activeTrek ? 'Retour depuis ce trek' : 'Retour au départ'}

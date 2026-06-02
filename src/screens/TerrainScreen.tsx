@@ -355,7 +355,7 @@ NUMEROS_BY_TREK.artouste = NUMEROS_BY_TREK.ayous;
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function TerrainScreen() {
-  const { activeTrekId } = useGpx();
+  const { activeTrekId, isInitializing } = useGpx();
   const activeTrek = activeTrekId ? TREKS.find(t => t.id === activeTrekId) : null;
 
   const terrainCards = activeTrekId
@@ -431,11 +431,11 @@ export default function TerrainScreen() {
             <Text style={s.trekBannerName}>{activeTrek.name}</Text>
           </View>
         </View>
-      ) : (
+      ) : !isInitializing ? (
         <View style={s.noTrekBanner}>
           <Text style={s.noTrekText}>Sélectionnez un trek dans Treks pour afficher les infos spécifiques.</Text>
         </View>
-      )}
+      ) : null}
 
       {/* ── Météo section ── */}
       <View style={s.meteoSection}>

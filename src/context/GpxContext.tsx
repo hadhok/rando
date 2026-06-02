@@ -119,6 +119,7 @@ interface GpxContextValue {
   setJournalEntry: (entry: JournalEntry) => void;
   deleteJournalEntry: (id: string) => void;
   syncStatus: SyncStatus;
+  isInitializing: boolean;
 }
 
 const GpxContext = createContext<GpxContextValue>({
@@ -132,6 +133,7 @@ const GpxContext = createContext<GpxContextValue>({
   stagesDone: {}, setStagesDone: () => {},
   journalEntries: {}, setJournalEntry: () => {}, deleteJournalEntry: () => {},
   syncStatus: 'idle',
+  isInitializing: true,
 });
 
 export function GpxProvider({ children }: { children: React.ReactNode }) {
@@ -144,6 +146,7 @@ export function GpxProvider({ children }: { children: React.ReactNode }) {
   const [journalEntries, setJournalEntriesState] = useState<Record<string, JournalEntry>>({});
   const [syncCode, setSyncCode]                  = useState('');
   const [syncStatus, setSyncStatus]              = useState<SyncStatus>('idle');
+  const [isInitializing, setIsInitializing]      = useState(true);
 
   const syncCodeRef = useRef('');
   const stateRef    = useRef({ gpx: null as GpxTrack | null, it: null as Itineraire | null, notes: {} as Notes, active: null as string | null, dates: {} as Dates });
@@ -200,6 +203,7 @@ export function GpxProvider({ children }: { children: React.ReactNode }) {
           setSyncStatus('syncing');
           sbPush(code, localGpx, localIt, localNotes, localActive, localDates).then(ok => setSyncStatus(ok ? 'ok' : 'error'));
         }
+        setIsInitializing(false);
       }
     );
   }, []);
@@ -307,7 +311,7 @@ export function GpxProvider({ children }: { children: React.ReactNode }) {
       trekDates, setTrekDate,
       stagesDone, setStagesDone,
       journalEntries, setJournalEntry, deleteJournalEntry,
-      syncStatus,
+      syncStatus, isInitializing,
     }}>
       {children}
     </GpxContext.Provider>
