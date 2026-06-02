@@ -64,7 +64,7 @@ export default function SyncModal({ visible, onClose }: { visible: boolean; onCl
             </TouchableOpacity>
           </View>
           <Text style={st.hint}>
-            Partagez ce code avec un autre appareil pour synchroniser votre trace GPX et votre itinéraire.
+            Partagez ce code avec un autre appareil pour synchroniser votre trace GPX, itinéraire, trek actif et dates.
           </Text>
 
           <View style={st.divider} />
@@ -95,7 +95,7 @@ export default function SyncModal({ visible, onClose }: { visible: boolean; onCl
             <Text style={st.sqlTitle}>⚙️ Configuration Supabase requise</Text>
             <Text style={st.sqlText}>
               Exécutez ce SQL dans le dashboard Supabase une seule fois :{'\n\n'}
-              {'create table if not exists rando_sync (\n  code text primary key,\n  gpx_track jsonb,\n  itineraire jsonb,\n  updated_at timestamptz default now()\n);\nalter table rando_sync enable row level security;\ncreate policy "anon_all" on rando_sync\n  for all using (true) with check (true);'}
+              {'create table if not exists rando_sync (\n  code text primary key,\n  gpx_track jsonb,\n  itineraire jsonb,\n  trek_notes jsonb,\n  active_trek text,\n  trek_dates jsonb,\n  updated_at timestamptz default now()\n);\nalter table rando_sync enable row level security;\ncreate policy "anon_all" on rando_sync\n  for all using (true) with check (true);\n-- migrations si table existante:\n-- alter table rando_sync add column if not exists trek_notes jsonb;\n-- alter table rando_sync add column if not exists active_trek text;\n-- alter table rando_sync add column if not exists trek_dates jsonb;'}
             </Text>
           </View>
         </View>
