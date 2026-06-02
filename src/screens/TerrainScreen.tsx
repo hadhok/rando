@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet,
   TouchableOpacity, RefreshControl, Platform, Linking,
@@ -46,12 +46,16 @@ const TREK_TO_WEATHER_ZONE: Record<string, string> = {
 const CACHE_TTL       = 3 * 60 * 60 * 1000;
 const CACHE_TTL_H     = 60 * 60 * 1000;
 
-interface DayForecast  { tMax: number; tMin: number; code: number; }
+interface DayForecast  { date: string; tMax: number; tMin: number; code: number; precip: number; }
 interface HourSlot     { hour: string; code: number; temp: number; wind: number; }
 interface ZoneResult   { days: DayForecast[]; ts: number; fromCache: boolean; }
 interface ZoneHourly   { today: HourSlot[]; tomorrow: HourSlot[]; ts: number; }
 
-function cacheKey(id: string)  { return `meteo_${id}_v3`; }
+function cacheKey(id: string)  { return `meteo_${id}_v4`; }
+
+function fmtShortDate(iso: string): string {
+  return new Date(iso + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+}
 function cacheKeyH(id: string) { return `meteo_h_${id}_v2`; }
 function ageLabel(ts: number): string {
   const min = Math.round((Date.now() - ts) / 60000);
@@ -79,16 +83,18 @@ async function fetchZone(id: string, lat: number, lng: number): Promise<ZoneResu
     } catch {}
   }
   try {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=3`;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=7`;
     const res  = await fetchWithTimeout(url);
     if (!res.ok) return null;
     const json = await res.json();
     const d = json.daily;
     if (!d?.time) return null;
-    const days: DayForecast[] = d.time.map((_: string, i: number) => ({
+    const days: DayForecast[] = d.time.map((date: string, i: number) => ({
+      date,
       tMax: Math.round(d.temperature_2m_max?.[i] ?? 0),
       tMin: Math.round(d.temperature_2m_min?.[i] ?? 0),
       code: d.weather_code?.[i] ?? 0,
+      precip: d.precipitation_probability_max?.[i] ?? 0,
     }));
     if (Platform.OS === 'web') {
       try { localStorage.setItem(key, JSON.stringify({ ts: now, data: days })); } catch {}
@@ -355,7 +361,7 @@ NUMEROS_BY_TREK.artouste = NUMEROS_BY_TREK.ayous;
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function TerrainScreen() {
-  const { activeTrekId, isInitializing } = useGpx();
+  const { activeTrekId, trekDates, isInitializing } = useGpx();
   const activeTrek = activeTrekId ? TREKS.find(t => t.id === activeTrekId) : null;
 
   const terrainCards = activeTrekId
@@ -404,10 +410,25 @@ export default function TerrainScreen() {
 
   const toggle = (id: string) => setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
 
+  const departureDate = activeTrekId ? (trekDates[activeTrekId] ?? null) : null;
   const weatherZoneId = activeTrekId ? (TREK_TO_WEATHER_ZONE[activeTrekId] ?? activeTrekId) : null;
   const zonesToShow = weatherZoneId
     ? ALL_ZONES.filter(z => z.id === weatherZoneId)
     : ALL_ZONES;
+
+  // Trek day-by-day forecast — shown when trek active + departure date within 7-day window
+  const trekForecast = useMemo(() => {
+    if (!activeTrek || !departureDate || !weatherZoneId) return null;
+    const zoneResult = weather[weatherZoneId];
+    if (!zoneResult) return null;
+    const rows = activeTrek.trekDays.map((day, i) => {
+      const d = new Date(departureDate + 'T12:00:00');
+      d.setDate(d.getDate() + i);
+      const dateStr = d.toISOString().slice(0, 10);
+      return { day, dateStr, forecast: zoneResult.days.find(fd => fd.date === dateStr) };
+    }).filter((r): r is { day: typeof r.day; dateStr: string; forecast: DayForecast } => !!r.forecast);
+    return rows.length > 0 ? rows : null;
+  }, [activeTrek, departureDate, weatherZoneId, weather]);
 
   const firstResult = weather[ALL_ZONES[0].id];
   const cacheAge = firstResult ? ageLabel(firstResult.ts) : null;
@@ -473,7 +494,7 @@ export default function TerrainScreen() {
                 ) : (
                   <>
                     <View style={s.weatherGrid}>
-                      {result.days.map((day, di) => {
+                      {result.days.slice(0, 3).map((day, di) => {
                         const good = day.code <= 2;
                         const bad  = day.code >= 51;
                         return (
@@ -532,6 +553,36 @@ export default function TerrainScreen() {
             </View>
           );
         })}
+
+        {/* Trek forecast — day by day */}
+        {trekForecast && (
+          <View style={s.card}>
+            <View style={s.cardHeader}>
+              <Text style={s.cardIcon}>📅</Text>
+              <Text style={s.cardTitle}>Prévisions trek</Text>
+              <Text style={s.cardMeta}>{activeTrek!.name.split(/[—–-]/)[0].trim()}</Text>
+            </View>
+            <View style={s.cardBody}>
+              {trekForecast.map(({ day, dateStr, forecast }, i) => {
+                const pColor = forecast.precip > 60 ? C.accent : forecast.precip > 30 ? C.accent2 : C.green;
+                const bad = forecast.code >= 51;
+                return (
+                  <View key={i} style={[s.trekForecastRow, bad && { backgroundColor: 'rgba(200,80,42,0.04)' }, i === trekForecast.length - 1 && { borderBottomWidth: 0 }]}>
+                    <View style={s.trekForecastLeft}>
+                      <Text style={s.trekForecastJ}>J{i + 1}</Text>
+                      <Text style={s.trekForecastDate}>{fmtShortDate(dateStr)}</Text>
+                    </View>
+                    <Text style={s.trekForecastEmoji}>{WMO_EMOJI[forecast.code] ?? '—'}</Text>
+                    <Text style={s.trekForecastTemp}>{forecast.tMin}°/{forecast.tMax}°</Text>
+                    <View style={[s.precipPill, { backgroundColor: `${pColor}18`, borderColor: pColor }]}>
+                      <Text style={[s.precipText, { color: pColor }]}>💧{forecast.precip}%</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
 
         <View style={s.sourcesRow}>
           {[
@@ -714,6 +765,15 @@ const s = StyleSheet.create({
   hourlyEmoji: { fontSize: 14, marginBottom: 2 },
   hourlyTemp: { fontFamily: FF.mono, fontSize: 10, fontWeight: '500', color: C.ink },
   hourlyWind: { fontFamily: FF.mono, fontSize: 10, color: C.inkMuted, marginTop: 1 },
+
+  trekForecastRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: C.line2 },
+  trekForecastLeft: { width: 72 },
+  trekForecastJ: { fontFamily: FF.mono, fontSize: 9, letterSpacing: 0.8, textTransform: 'uppercase', color: C.inkMuted },
+  trekForecastDate: { fontFamily: FF.mono, fontSize: 10, color: C.ink, fontWeight: '500' },
+  trekForecastEmoji: { fontSize: 20, width: 28, textAlign: 'center' as const },
+  trekForecastTemp: { fontFamily: FF.mono, fontSize: 12, color: C.ink, flex: 1 },
+  precipPill: { borderRadius: 8, borderWidth: 1, paddingHorizontal: 7, paddingVertical: 3 },
+  precipText: { fontFamily: FF.mono, fontSize: 10, fontWeight: '600' as const },
 
   sourcesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
   sourceChip: { backgroundColor: C.paper3, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: C.line },

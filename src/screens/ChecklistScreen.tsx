@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert,
 } from 'react-native';
@@ -82,6 +82,18 @@ export default function ChecklistScreen() {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   const allDone = total > 0 && done === total;
 
+  // Pack weight across ALL items (independent of active filter)
+  const weightByPerson = useMemo(() => {
+    const w = { papa: 0, fille: 0, shared: 0 };
+    CHECKLIST_DATA.forEach(sec => sec.items.forEach(item => {
+      if (checked[item.id] && item.weight) w[item.who] += item.weight;
+    }));
+    return w;
+  }, [checked]);
+  const totalCheckedW = weightByPerson.papa + weightByPerson.fille + weightByPerson.shared;
+  const wColor = totalCheckedW > 10000 ? C.accent : totalCheckedW > 7000 ? C.accent2 : C.green;
+  const wLabel = totalCheckedW > 10000 ? 'Lourd' : totalCheckedW > 7000 ? 'Modéré' : 'Léger';
+
   const PERSON_FILTERS: { key: PersonFilter; label: string }[] = [
     { key: 'all',    label: 'Tout' },
     { key: 'papa',   label: 'Papa' },
@@ -135,6 +147,44 @@ export default function ChecklistScreen() {
             </TouchableOpacity>
           ))}
         </View>
+
+        {/* Weight card */}
+        {totalCheckedW > 0 && (
+          <View style={[s.weightCard, { borderLeftColor: wColor }]}>
+            <View style={s.weightHeaderRow}>
+              <Text style={s.weightTitle}>🎒 Poids emballé</Text>
+              <Text style={[s.weightTotal, { color: wColor }]}>
+                {formatWeight(totalCheckedW)} · {wLabel}
+              </Text>
+            </View>
+            <View style={s.weightBarBg}>
+              <View style={[s.weightBarFill, {
+                width: `${Math.min(100, (totalCheckedW / 15000) * 100)}%` as any,
+                backgroundColor: wColor,
+              }]} />
+            </View>
+            <View style={s.weightPersonRow}>
+              {weightByPerson.papa > 0 && (
+                <View style={s.weightChip}>
+                  <Text style={s.weightChipLabel}>papa</Text>
+                  <Text style={s.weightChipVal}>{formatWeight(weightByPerson.papa)}</Text>
+                </View>
+              )}
+              {weightByPerson.fille > 0 && (
+                <View style={s.weightChip}>
+                  <Text style={s.weightChipLabel}>fille</Text>
+                  <Text style={s.weightChipVal}>{formatWeight(weightByPerson.fille)}</Text>
+                </View>
+              )}
+              {weightByPerson.shared > 0 && (
+                <View style={s.weightChip}>
+                  <Text style={s.weightChipLabel}>×2</Text>
+                  <Text style={s.weightChipVal}>{formatWeight(weightByPerson.shared)}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
 
         {/* Progress */}
         <View style={s.progressBar}>
@@ -238,6 +288,17 @@ const s = StyleSheet.create({
   statsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   progressText: { fontFamily: FF.mono, fontSize: 10, color: C.inkMuted },
   weightText: { fontFamily: FF.mono, fontSize: 10, color: C.blue, fontWeight: '500' },
+
+  weightCard: { backgroundColor: C.paper2, borderRadius: 10, borderWidth: 1, borderColor: C.line, borderLeftWidth: 4, padding: 14, marginBottom: 14 },
+  weightHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  weightTitle: { fontFamily: FF.mono, fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: C.inkMuted },
+  weightTotal: { fontFamily: FF.mono, fontSize: 13, fontWeight: '600' },
+  weightBarBg: { height: 5, backgroundColor: C.line, borderRadius: 3, overflow: 'hidden', marginBottom: 10 },
+  weightBarFill: { height: 5, borderRadius: 3 },
+  weightPersonRow: { flexDirection: 'row', gap: 8 },
+  weightChip: { backgroundColor: C.paper3, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5, borderWidth: 1, borderColor: C.line, alignItems: 'center' },
+  weightChipLabel: { fontFamily: FF.mono, fontSize: 9, color: C.inkMuted, letterSpacing: 0.5, textTransform: 'uppercase' },
+  weightChipVal: { fontFamily: FF.mono, fontSize: 11, color: C.ink, fontWeight: '600', marginTop: 1 },
 
   emptyState: { alignItems: 'center', paddingVertical: 40 },
   emptyIcon: { fontSize: 32, marginBottom: 8 },

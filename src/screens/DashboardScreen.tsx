@@ -209,7 +209,7 @@ function TrekDetail({
 
 export default function DashboardScreen() {
   injectFonts();
-  const { trekNotes, setTrekNote, activeTrekId, setActiveTrekId, trekDates, setTrekDate } = useGpx();
+  const { trekNotes, setTrekNote, activeTrekId, setActiveTrekId, trekDates, setTrekDate, stagesDone } = useGpx();
   const [selectedTrek, setSelectedTrek] = useState<Trek | null>(null);
   const [checkPct, setCheckPct] = useState(0);
   const [isOnline, setIsOnline] = useState(true);
@@ -224,6 +224,22 @@ export default function DashboardScreen() {
   );
 
   const activeTrek = TREKS.find(t => t.id === activeTrekId);
+
+  const depDate = activeTrek ? (trekDates[activeTrek.id] ?? '') : '';
+  const daysUntilDep = activeTrek && depDate ? daysUntil(depDate) : null;
+  // trekDayIdx: 0-based index of current day during trek (null = not in trek)
+  const trekDayIdx = (daysUntilDep !== null && daysUntilDep <= 0 && activeTrek && -daysUntilDep < activeTrek.days)
+    ? -daysUntilDep : null;
+
+  const allTrekStages = activeTrek
+    ? activeTrek.trekDays.flatMap((day, di) =>
+        day.stages.map((st, si) => ({ ...st, stageKey: `${activeTrek.id}-j${di}-s${si}` }))
+      )
+    : [];
+  const stageDoneCount = allTrekStages.filter(st => stagesDone[st.stageKey]).length;
+  const nextPendingStage = allTrekStages.find(st => !stagesDone[st.stageKey]) ?? null;
+  const inTrek = trekDayIdx !== null;
+  const preImminent = !inTrek && daysUntilDep !== null && daysUntilDep > 0 && daysUntilDep <= 7;
 
   return (
     <View style={[s.root, notebookBg as any]}>
@@ -250,6 +266,46 @@ export default function DashboardScreen() {
             </View>
           ))}
         </View>
+
+        {/* Situation card — in trek or imminent */}
+        {activeTrek && inTrek && (
+          <View style={[s.situCard, { borderLeftColor: activeTrek.color }]}>
+            <View style={s.situHeader}>
+              <Text style={s.situLabel}>🏃 En trek</Text>
+              <Text style={s.situDay}>Jour {trekDayIdx! + 1} / {activeTrek.days}</Text>
+            </View>
+            <Text style={s.situTrekName}>{activeTrek.name}</Text>
+            <View style={s.situProgressRow}>
+              <View style={s.situBar}>
+                <View style={[s.situBarFill, {
+                  width: `${allTrekStages.length > 0 ? (stageDoneCount / allTrekStages.length) * 100 : 0}%` as any,
+                  backgroundColor: activeTrek.color,
+                }]} />
+              </View>
+              <Text style={s.situProgressText}>{stageDoneCount}/{allTrekStages.length} étapes</Text>
+            </View>
+            {nextPendingStage && (
+              <View style={s.situNextRow}>
+                <Text style={s.situNextLabel}>Prochain</Text>
+                <Text style={s.situNextName}>{nextPendingStage.name}</Text>
+                <Text style={s.situNextMeta}>{nextPendingStage.dist} · {nextPendingStage.time}</Text>
+              </View>
+            )}
+            {stageDoneCount === allTrekStages.length && allTrekStages.length > 0 && (
+              <Text style={s.situComplete}>✓ Toutes les étapes terminées !</Text>
+            )}
+          </View>
+        )}
+        {activeTrek && preImminent && (
+          <View style={[s.situCard, { borderLeftColor: activeTrek.color }]}>
+            <View style={s.situHeader}>
+              <Text style={s.situLabel}>⏰ Départ imminent</Text>
+              <Text style={s.situDay}>dans {daysUntilDep}j</Text>
+            </View>
+            <Text style={s.situTrekName}>{activeTrek.name}</Text>
+            <Text style={s.situMeta}>{activeTrek.distance} · {activeTrek.dp} · {activeTrek.days} jours · {activeTrek.maxAlt}</Text>
+          </View>
+        )}
 
         <Text style={s.sectionTitle}>Mes treks</Text>
 
@@ -349,6 +405,22 @@ const s = StyleSheet.create({
   statCardAccent: { backgroundColor: C.accent, borderColor: C.accent },
   statVal: { fontFamily: FF.display, fontSize: 28, fontWeight: '700', color: C.ink, lineHeight: 32 },
   statLbl: { fontFamily: FF.mono, fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color: C.inkMuted, marginTop: 4 },
+
+  situCard: { backgroundColor: C.paper2, borderRadius: 10, borderWidth: 1, borderColor: C.line, borderLeftWidth: 4, padding: 14, marginBottom: 14 },
+  situHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  situLabel: { fontFamily: FF.mono, fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: C.inkMuted },
+  situDay: { fontFamily: FF.mono, fontSize: 11, color: C.ink, fontWeight: '600' },
+  situTrekName: { fontFamily: FF.display, fontSize: 14, fontWeight: '600', color: C.ink, letterSpacing: -0.3, marginBottom: 8 },
+  situProgressRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+  situBar: { flex: 1, height: 5, backgroundColor: C.line, borderRadius: 3, overflow: 'hidden' },
+  situBarFill: { height: 5, borderRadius: 3 },
+  situProgressText: { fontFamily: FF.mono, fontSize: 10, color: C.inkMuted },
+  situNextRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.paper3, borderRadius: 6, padding: 8, borderWidth: 1, borderColor: C.line2 },
+  situNextLabel: { fontFamily: FF.mono, fontSize: 9, letterSpacing: 0.8, textTransform: 'uppercase', color: C.inkMuted },
+  situNextName: { fontFamily: FF.mono, fontSize: 11, fontWeight: '600', color: C.ink, flex: 1 },
+  situNextMeta: { fontFamily: FF.mono, fontSize: 10, color: C.blue },
+  situComplete: { fontFamily: FF.mono, fontSize: 11, color: C.green, fontWeight: '600', textAlign: 'center', paddingTop: 4 },
+  situMeta: { fontFamily: FF.mono, fontSize: 10, color: C.inkMuted },
 
   sectionTitle: { fontFamily: FF.display, fontSize: 18, fontWeight: '600', color: C.ink, letterSpacing: -0.5, marginBottom: 14 },
 
