@@ -56,7 +56,7 @@ export default function SyncModal({ visible, onClose }: { visible: boolean; onCl
         </View>
 
         <View style={st.body}>
-          <Text style={st.label}>Votre code appareil</Text>
+          <Text style={st.label}>Code de profil</Text>
           <View style={st.codeRow}>
             <Text style={st.code}>{syncCode || '…'}</Text>
             <TouchableOpacity style={st.copyBtn} onPress={handleCopy}>
@@ -64,12 +64,12 @@ export default function SyncModal({ visible, onClose }: { visible: boolean; onCl
             </TouchableOpacity>
           </View>
           <Text style={st.hint}>
-            Partagez ce code avec un autre appareil pour synchroniser votre trace GPX, itinéraire, trek actif et dates.
+            Ce code identifie vos données en base. Tous vos appareils doivent utiliser le même code.
           </Text>
 
           <View style={st.divider} />
 
-          <Text style={st.label}>Rejoindre un autre appareil</Text>
+          <Text style={st.label}>Changer de profil</Text>
           <TextInput
             style={st.input}
             value={input}

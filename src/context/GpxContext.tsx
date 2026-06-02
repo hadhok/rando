@@ -49,9 +49,8 @@ export interface JournalEntry {
   humeur: string;   // mood emoji
 }
 
-function generateCode(): string {
-  return Math.random().toString(36).slice(2, 8).toUpperCase();
-}
+// Code fixe — app personnelle, pas de génération aléatoire par appareil
+const DEFAULT_CODE = 'KEVD0R';
 
 async function sbPush(code: string, gpx: GpxTrack | null, it: Itineraire | null, notes: Notes, active: string | null, dates: Dates): Promise<boolean> {
   const opts = (body: object) => ({
@@ -180,8 +179,8 @@ export function GpxProvider({ children }: { children: React.ReactNode }) {
         if (Object.keys(localDates).length > 0)  { stateRef.current.dates = localDates;  setTrekDatesState(localDates); }
         if (Object.keys(localNotes).length > 0)  { stateRef.current.notes = localNotes;  setTrekNotesState(localNotes); }
 
-        let code = values[KEY_CODE] ?? '';
-        if (!code) { code = generateCode(); await AsyncStorage.setItem(KEY_CODE, code); }
+        const code = values[KEY_CODE] || DEFAULT_CODE;
+        if (!values[KEY_CODE]) await AsyncStorage.setItem(KEY_CODE, code);
         syncCodeRef.current = code;
         setSyncCode(code);
 
