@@ -16,12 +16,15 @@ const KEY_JOURNAL = 'journal_v1';
 // create table rando_sync (
 //   code text primary key,
 //   gpx_track jsonb, itineraire jsonb, trek_notes jsonb,
+//   active_trek text, trek_dates jsonb,
 //   updated_at timestamptz default now()
 // );
 // alter table rando_sync enable row level security;
 // create policy "anon_all" on rando_sync for all using (true) with check (true);
-// -- If table already exists:
+// -- Migrations if table already exists:
 // alter table rando_sync add column if not exists trek_notes jsonb;
+// alter table rando_sync add column if not exists active_trek text;
+// alter table rando_sync add column if not exists trek_dates jsonb;
 
 const SB_URL = 'https://zodywxrnyaiviuahxuvw.supabase.co';
 const SB_KEY =
@@ -50,7 +53,7 @@ function generateCode(): string {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
-async function sbPush(code: string, gpx: GpxTrack | null, it: Itineraire | null, notes: Notes): Promise<boolean> {
+async function sbPush(code: string, gpx: GpxTrack | null, it: Itineraire | null, notes: Notes, active: string | null, dates: Dates): Promise<boolean> {
   const opts = (body: object) => ({
     method: 'POST' as const,
     headers: { ...SB_H, Prefer: 'resolution=merge-duplicates' },
@@ -59,9 +62,14 @@ async function sbPush(code: string, gpx: GpxTrack | null, it: Itineraire | null,
   const url = `${TABLE}?on_conflict=code`;
   const ts = new Date().toISOString();
   try {
-    const full = { code, gpx_track: gpx, itineraire: it, trek_notes: notes, updated_at: ts };
+    const full = { code, gpx_track: gpx, itineraire: it, trek_notes: notes, active_trek: active, trek_dates: dates, updated_at: ts };
     let res = await fetch(url, opts(full));
     if (!res.ok && res.status === 400) {
+      // active_trek/trek_dates columns not yet migrated — retry without them
+      res = await fetch(url, opts({ code, gpx_track: gpx, itineraire: it, trek_notes: notes, updated_at: ts }));
+    }
+    if (!res.ok && res.status === 400) {
+      // trek_notes column not yet migrated either
       res = await fetch(url, opts({ code, gpx_track: gpx, itineraire: it, updated_at: ts }));
     }
     return res.ok;
@@ -70,9 +78,9 @@ async function sbPush(code: string, gpx: GpxTrack | null, it: Itineraire | null,
   }
 }
 
-async function sbPull(code: string): Promise<{ gpx_track: GpxTrack | null; itineraire: Itineraire | null; trek_notes: Notes | null } | null> {
+async function sbPull(code: string): Promise<{ gpx_track: GpxTrack | null; itineraire: Itineraire | null; trek_notes: Notes | null; active_trek: string | null; trek_dates: Dates | null } | null> {
   try {
-    const res = await fetch(`${TABLE}?code=eq.${code}&select=gpx_track,itineraire,trek_notes`, { headers: SB_H });
+    const res = await fetch(`${TABLE}?code=eq.${code}&select=gpx_track,itineraire,trek_notes,active_trek,trek_dates`, { headers: SB_H });
     if (!res.ok) return null;
     const data = await res.json();
     if (Array.isArray(data) && data.length > 0) return data[0];
@@ -138,12 +146,12 @@ export function GpxProvider({ children }: { children: React.ReactNode }) {
   const [syncStatus, setSyncStatus]              = useState<SyncStatus>('idle');
 
   const syncCodeRef = useRef('');
-  const stateRef    = useRef({ gpx: null as GpxTrack | null, it: null as Itineraire | null, notes: {} as Notes });
+  const stateRef    = useRef({ gpx: null as GpxTrack | null, it: null as Itineraire | null, notes: {} as Notes, active: null as string | null, dates: {} as Dates });
 
-  const push = useCallback(async (gpx: GpxTrack | null, it: Itineraire | null, notes: Notes) => {
+  const push = useCallback(async (gpx: GpxTrack | null, it: Itineraire | null, notes: Notes, active: string | null, dates: Dates) => {
     if (!syncCodeRef.current) return;
     setSyncStatus('syncing');
-    const ok = await sbPush(syncCodeRef.current, gpx, it, notes);
+    const ok = await sbPush(syncCodeRef.current, gpx, it, notes, active, dates);
     setSyncStatus(ok ? 'ok' : 'error');
   }, []);
 
@@ -153,17 +161,21 @@ export function GpxProvider({ children }: { children: React.ReactNode }) {
         let localGpx: GpxTrack | null = null;
         let localIt: Itineraire | null = null;
         let localNotes: Notes = {};
-        try { if (values[KEY_GPX])    localGpx   = JSON.parse(values[KEY_GPX]!);    } catch {}
-        try { if (values[KEY_IT])     localIt    = JSON.parse(values[KEY_IT]!);     } catch {}
-        try { if (values[KEY_NOTES])  localNotes = JSON.parse(values[KEY_NOTES]!);  } catch {}
-        try { if (values[KEY_ACTIVE]) setActiveTrekIdState(values[KEY_ACTIVE]);      } catch {}
-        try { if (values[KEY_DATES])  setTrekDatesState(JSON.parse(values[KEY_DATES]!)); } catch {}
+        let localActive: string | null = null;
+        let localDates: Dates = {};
+        try { if (values[KEY_GPX])    localGpx    = JSON.parse(values[KEY_GPX]!);    } catch {}
+        try { if (values[KEY_IT])     localIt     = JSON.parse(values[KEY_IT]!);     } catch {}
+        try { if (values[KEY_NOTES])  localNotes  = JSON.parse(values[KEY_NOTES]!);  } catch {}
+        try { if (values[KEY_ACTIVE]) localActive = values[KEY_ACTIVE]!;             } catch {}
+        try { if (values[KEY_DATES])  localDates  = JSON.parse(values[KEY_DATES]!);  } catch {}
         try { if (values[KEY_STAGES]) setStagesDoneState(JSON.parse(values[KEY_STAGES]!)); } catch {}
         try { if (values[KEY_JOURNAL]) setJournalEntriesState(JSON.parse(values[KEY_JOURNAL]!)); } catch {}
 
-        if (localGpx)  { stateRef.current.gpx   = localGpx;   setGpxTrackState(localGpx); }
-        if (localIt)   { stateRef.current.it    = localIt;    setItineraireState(localIt); }
-        if (Object.keys(localNotes).length > 0) { stateRef.current.notes = localNotes; setTrekNotesState(localNotes); }
+        if (localGpx)    { stateRef.current.gpx    = localGpx;    setGpxTrackState(localGpx); }
+        if (localIt)     { stateRef.current.it     = localIt;     setItineraireState(localIt); }
+        if (localActive) { stateRef.current.active = localActive; setActiveTrekIdState(localActive); }
+        if (Object.keys(localDates).length > 0)  { stateRef.current.dates = localDates;  setTrekDatesState(localDates); }
+        if (Object.keys(localNotes).length > 0)  { stateRef.current.notes = localNotes;  setTrekNotesState(localNotes); }
 
         let code = values[KEY_CODE] ?? '';
         if (!code) { code = generateCode(); await AsyncStorage.setItem(KEY_CODE, code); }
@@ -172,17 +184,21 @@ export function GpxProvider({ children }: { children: React.ReactNode }) {
 
         const remote = await sbPull(code);
         if (remote) {
-          if (remote.gpx_track)  { stateRef.current.gpx = remote.gpx_track; setGpxTrackState(remote.gpx_track); AsyncStorage.setItem(KEY_GPX, JSON.stringify(remote.gpx_track)); }
-          if (remote.itineraire) { stateRef.current.it  = remote.itineraire; setItineraireState(remote.itineraire); AsyncStorage.setItem(KEY_IT, JSON.stringify(remote.itineraire)); }
+          if (remote.gpx_track)  { stateRef.current.gpx    = remote.gpx_track;  setGpxTrackState(remote.gpx_track);   AsyncStorage.setItem(KEY_GPX, JSON.stringify(remote.gpx_track)); }
+          if (remote.itineraire) { stateRef.current.it     = remote.itineraire; setItineraireState(remote.itineraire); AsyncStorage.setItem(KEY_IT, JSON.stringify(remote.itineraire)); }
+          if (remote.active_trek) { stateRef.current.active = remote.active_trek; setActiveTrekIdState(remote.active_trek); AsyncStorage.setItem(KEY_ACTIVE, remote.active_trek); }
           const rNotes = remote.trek_notes ?? {};
           if (Object.keys(rNotes).length > 0) { stateRef.current.notes = rNotes; setTrekNotesState(rNotes); AsyncStorage.setItem(KEY_NOTES, JSON.stringify(rNotes)); }
-          if (!remote.gpx_track && !remote.itineraire && (localGpx || localIt || Object.keys(localNotes).length > 0)) {
+          const rDates = remote.trek_dates ?? {};
+          if (Object.keys(rDates).length > 0) { stateRef.current.dates = rDates; setTrekDatesState(rDates); AsyncStorage.setItem(KEY_DATES, JSON.stringify(rDates)); }
+          const hasLocal = localGpx || localIt || localActive || Object.keys(localNotes).length > 0 || Object.keys(localDates).length > 0;
+          if (!remote.gpx_track && !remote.itineraire && !remote.active_trek && hasLocal) {
             setSyncStatus('syncing');
-            sbPush(code, localGpx, localIt, localNotes).then(ok => setSyncStatus(ok ? 'ok' : 'error'));
+            sbPush(code, localGpx, localIt, localNotes, localActive, localDates).then(ok => setSyncStatus(ok ? 'ok' : 'error'));
           }
-        } else if (localGpx || localIt || Object.keys(localNotes).length > 0) {
+        } else if (localGpx || localIt || localActive || Object.keys(localNotes).length > 0 || Object.keys(localDates).length > 0) {
           setSyncStatus('syncing');
-          sbPush(code, localGpx, localIt, localNotes).then(ok => setSyncStatus(ok ? 'ok' : 'error'));
+          sbPush(code, localGpx, localIt, localNotes, localActive, localDates).then(ok => setSyncStatus(ok ? 'ok' : 'error'));
         }
       }
     );
@@ -192,14 +208,14 @@ export function GpxProvider({ children }: { children: React.ReactNode }) {
     stateRef.current.gpx = track;
     setGpxTrackState(track);
     track ? AsyncStorage.setItem(KEY_GPX, JSON.stringify(track)) : AsyncStorage.removeItem(KEY_GPX);
-    push(track, stateRef.current.it, stateRef.current.notes);
+    push(track, stateRef.current.it, stateRef.current.notes, stateRef.current.active, stateRef.current.dates);
   }, [push]);
 
   const setItineraire = useCallback((it: Itineraire | null) => {
     stateRef.current.it = it;
     setItineraireState(it);
     it ? AsyncStorage.setItem(KEY_IT, JSON.stringify(it)) : AsyncStorage.removeItem(KEY_IT);
-    push(stateRef.current.gpx, it, stateRef.current.notes);
+    push(stateRef.current.gpx, it, stateRef.current.notes, stateRef.current.active, stateRef.current.dates);
   }, [push]);
 
   const setTrekNote = useCallback((trekId: string, text: string) => {
@@ -208,22 +224,24 @@ export function GpxProvider({ children }: { children: React.ReactNode }) {
     stateRef.current.notes = next;
     setTrekNotesState(next);
     Object.keys(next).length > 0 ? AsyncStorage.setItem(KEY_NOTES, JSON.stringify(next)) : AsyncStorage.removeItem(KEY_NOTES);
-    push(stateRef.current.gpx, stateRef.current.it, next);
+    push(stateRef.current.gpx, stateRef.current.it, next, stateRef.current.active, stateRef.current.dates);
   }, [push]);
 
   const setActiveTrekId = useCallback((id: string | null) => {
+    stateRef.current.active = id;
     setActiveTrekIdState(id);
     id ? AsyncStorage.setItem(KEY_ACTIVE, id) : AsyncStorage.removeItem(KEY_ACTIVE);
-  }, []);
+    push(stateRef.current.gpx, stateRef.current.it, stateRef.current.notes, id, stateRef.current.dates);
+  }, [push]);
 
   const setTrekDate = useCallback((trekId: string, date: string) => {
-    setTrekDatesState(prev => {
-      const next = { ...prev };
-      date ? (next[trekId] = date) : delete next[trekId];
-      Object.keys(next).length > 0 ? AsyncStorage.setItem(KEY_DATES, JSON.stringify(next)) : AsyncStorage.removeItem(KEY_DATES);
-      return next;
-    });
-  }, []);
+    const next: Dates = { ...stateRef.current.dates };
+    date ? (next[trekId] = date) : delete next[trekId];
+    stateRef.current.dates = next;
+    setTrekDatesState(next);
+    Object.keys(next).length > 0 ? AsyncStorage.setItem(KEY_DATES, JSON.stringify(next)) : AsyncStorage.removeItem(KEY_DATES);
+    push(stateRef.current.gpx, stateRef.current.it, stateRef.current.notes, stateRef.current.active, next);
+  }, [push]);
 
   const setStagesDone = useCallback((key: string, done: boolean) => {
     setStagesDoneState(prev => {
@@ -258,10 +276,13 @@ export function GpxProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem(KEY_CODE, normalized);
     const remote = await sbPull(normalized);
     if (remote) {
-      if (remote.gpx_track)  { stateRef.current.gpx = remote.gpx_track; setGpxTrackState(remote.gpx_track); await AsyncStorage.setItem(KEY_GPX, JSON.stringify(remote.gpx_track)); }
-      if (remote.itineraire) { stateRef.current.it  = remote.itineraire; setItineraireState(remote.itineraire); await AsyncStorage.setItem(KEY_IT, JSON.stringify(remote.itineraire)); }
+      if (remote.gpx_track)  { stateRef.current.gpx    = remote.gpx_track;  setGpxTrackState(remote.gpx_track);   await AsyncStorage.setItem(KEY_GPX, JSON.stringify(remote.gpx_track)); }
+      if (remote.itineraire) { stateRef.current.it     = remote.itineraire; setItineraireState(remote.itineraire); await AsyncStorage.setItem(KEY_IT, JSON.stringify(remote.itineraire)); }
+      if (remote.active_trek) { stateRef.current.active = remote.active_trek; setActiveTrekIdState(remote.active_trek); await AsyncStorage.setItem(KEY_ACTIVE, remote.active_trek); }
       const rNotes = remote.trek_notes ?? {};
       if (Object.keys(rNotes).length > 0) { stateRef.current.notes = rNotes; setTrekNotesState(rNotes); await AsyncStorage.setItem(KEY_NOTES, JSON.stringify(rNotes)); }
+      const rDates = remote.trek_dates ?? {};
+      if (Object.keys(rDates).length > 0) { stateRef.current.dates = rDates; setTrekDatesState(rDates); await AsyncStorage.setItem(KEY_DATES, JSON.stringify(rDates)); }
       setSyncStatus('ok');
     }
   }, []);
