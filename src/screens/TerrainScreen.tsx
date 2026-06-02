@@ -480,7 +480,7 @@ export default function TerrainScreen() {
                           <View key={di} style={[s.weatherDay, good && s.weatherGood, bad && s.weatherBad]}>
                             <Text style={s.weatherEmoji}>{WMO_EMOJI[day.code] ?? '🌡'}</Text>
                             <Text style={s.weatherLabel}>{DAY_LABELS[di]}</Text>
-                            <Text style={s.weatherTemp}>{day.tMin}–{day.tMax}°C</Text>
+                            <Text style={s.weatherTemp}>{day.tMin}°/{day.tMax}°</Text>
                             <Text style={s.weatherDesc} numberOfLines={1}>{WMO_LABEL[day.code] ?? '—'}</Text>
                           </View>
                         );
@@ -534,10 +534,14 @@ export default function TerrainScreen() {
         })}
 
         <View style={s.sourcesRow}>
-          {['meteofrance.com', 'meteoblue.com', 'meteociel.fr'].map((src, i) => (
-            <View key={i} style={s.sourceChip}>
-              <Text style={s.sourceText}>{src}</Text>
-            </View>
+          {[
+            { label: 'meteofrance.com', url: 'https://meteofrance.com' },
+            { label: 'meteoblue.com',   url: 'https://meteoblue.com' },
+            { label: 'meteociel.fr',    url: 'https://meteociel.fr' },
+          ].map((src, i) => (
+            <TouchableOpacity key={i} style={s.sourceChip} onPress={() => Linking.openURL(src.url)} activeOpacity={0.7}>
+              <Text style={s.sourceText}>🔗 {src.label}</Text>
+            </TouchableOpacity>
           ))}
         </View>
       </View>
