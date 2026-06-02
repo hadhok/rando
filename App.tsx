@@ -89,7 +89,7 @@ export default function App() {
                 </Text>
               ),
               tabBarActiveTintColor: C.paper,
-              tabBarInactiveTintColor: 'rgba(244,240,232,0.45)',
+              tabBarInactiveTintColor: 'rgba(244,240,232,0.70)',
               tabBarActiveBackgroundColor: C.accent,
               tabBarInactiveBackgroundColor: C.ink2,
               tabBarStyle: {
@@ -147,13 +147,13 @@ const h = StyleSheet.create({
     color: C.paper, letterSpacing: -0.5,
   },
   appSub: {
-    fontFamily: FF.mono, fontSize: 8, letterSpacing: 1.5,
-    color: C.paper, opacity: 0.5, textTransform: 'uppercase', marginTop: 1,
+    fontFamily: FF.mono, fontSize: 10, letterSpacing: 1.5,
+    color: 'rgba(244,240,232,0.75)', textTransform: 'uppercase', marginTop: 1,
   },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
   statusText: {
     fontFamily: FF.mono, fontSize: 9, letterSpacing: 1,
-    color: C.paper, opacity: 0.6, textTransform: 'uppercase',
+    color: 'rgba(244,240,232,0.80)', textTransform: 'uppercase',
   },
 });

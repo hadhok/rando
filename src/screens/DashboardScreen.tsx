@@ -348,7 +348,7 @@ const s = StyleSheet.create({
   statCard: { flex: 1, minWidth: '45%', backgroundColor: C.paper2, borderWidth: 1, borderColor: C.line, borderRadius: 10, padding: 14, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8, elevation: 2 },
   statCardAccent: { backgroundColor: C.accent, borderColor: C.accent },
   statVal: { fontFamily: FF.display, fontSize: 28, fontWeight: '700', color: C.ink, lineHeight: 32 },
-  statLbl: { fontFamily: FF.mono, fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', opacity: 0.6, color: C.ink, marginTop: 4 },
+  statLbl: { fontFamily: FF.mono, fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color: C.inkMuted, marginTop: 4 },
 
   sectionTitle: { fontFamily: FF.display, fontSize: 18, fontWeight: '600', color: C.ink, letterSpacing: -0.5, marginBottom: 14 },
 
@@ -370,7 +370,7 @@ const s = StyleSheet.create({
   trekStats: { flexDirection: 'row', gap: 6 },
   statBox: { flex: 1, backgroundColor: C.paper3, borderRadius: 6, padding: 5, alignItems: 'center' },
   statBoxVal: { fontFamily: FF.mono, fontSize: 12, fontWeight: '500', color: C.ink },
-  statBoxLbl: { fontFamily: FF.mono, fontSize: 8, color: C.ink, opacity: 0.5, letterSpacing: 0.5, textTransform: 'uppercase', marginTop: 1 },
+  statBoxLbl: { fontFamily: FF.mono, fontSize: 10, color: C.inkMuted, letterSpacing: 0.5, textTransform: 'uppercase', marginTop: 1 },
 
   // Detail modal
   handleArea: { alignItems: 'center', paddingVertical: 10, backgroundColor: C.paper },
@@ -395,13 +395,13 @@ const s = StyleSheet.create({
   countdownText: { fontFamily: FF.mono, fontSize: 10, color: C.ink, fontWeight: '600' },
 
   elevContainer: { backgroundColor: C.paper3, borderRadius: 8, padding: 10, borderWidth: 1, borderColor: C.line, marginBottom: 16, overflow: 'hidden' },
-  elevTitle: { fontFamily: FF.mono, fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', opacity: 0.5, color: C.ink, marginBottom: 6 },
+  elevTitle: { fontFamily: FF.mono, fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color: C.inkMuted, marginBottom: 6 },
 
   dayHeader: { backgroundColor: C.ink2, borderRadius: 6, paddingHorizontal: 12, paddingVertical: 8, marginTop: 14, marginBottom: 4 },
   dayHeaderText: { fontFamily: FF.mono, fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color: C.paper },
 
   stageHeaderRow: { flexDirection: 'row', paddingHorizontal: 4, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: C.line },
-  stageHeaderCell: { flex: 1, fontFamily: FF.mono, fontSize: 8, letterSpacing: 0.8, textTransform: 'uppercase', opacity: 0.5, color: C.ink },
+  stageHeaderCell: { flex: 1, fontFamily: FF.mono, fontSize: 10, letterSpacing: 0.8, textTransform: 'uppercase', color: C.inkMuted },
 
   stageRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 7, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: C.line2 },
   stageNameCell: { flex: 2 },
@@ -421,7 +421,7 @@ const s = StyleSheet.create({
   infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.line2 },
   infoIcon: { fontSize: 16, width: 24, textAlign: 'center' },
   infoLabel: { fontFamily: FF.mono, fontSize: 12, color: C.ink, fontWeight: '500' },
-  infoSub: { fontFamily: FF.mono, fontSize: 10, color: C.ink, opacity: 0.5, marginTop: 1 },
+  infoSub: { fontFamily: FF.mono, fontSize: 10, color: C.inkMuted, marginTop: 1 },
 
   myNotesSection: { marginTop: 14, borderRadius: 10, borderWidth: 1.5, borderColor: C.accent2, backgroundColor: 'rgba(232,160,48,0.06)', overflow: 'hidden' },
   myNotesHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: 'rgba(232,160,48,0.2)' },

@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 export const C = {
   ink: '#1a2e1a',
   ink2: '#2d4a2d',
+  inkMuted: '#4a6b4a',
   paper: '#f4f0e8',
   paper2: '#ede8dc',
   paper3: '#e4dece',
@@ -10,8 +11,8 @@ export const C = {
   accent2: '#e8a030',
   blue: '#2a5a8a',
   green: '#2d6a3a',
-  line: 'rgba(26,46,26,0.12)',
-  line2: 'rgba(26,46,26,0.06)',
+  line: 'rgba(26,46,26,0.20)',
+  line2: 'rgba(26,46,26,0.12)',
 };
 
 export const FF = {

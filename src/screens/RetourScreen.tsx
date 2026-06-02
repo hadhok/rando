@@ -175,14 +175,14 @@ const s = StyleSheet.create({
     borderLeftWidth: 4, padding: 10, marginBottom: 12,
   },
   trekDot: { width: 8, height: 8, borderRadius: 4 },
-  trekBannerLabel: { fontFamily: FF.mono, fontSize: 8, letterSpacing: 1.2, textTransform: 'uppercase', color: C.ink, opacity: 0.4 },
+  trekBannerLabel: { fontFamily: FF.mono, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase', color: C.inkMuted },
   trekBannerName: { fontFamily: FF.display, fontSize: 13, fontWeight: '600', color: C.ink, letterSpacing: -0.3 },
 
   noTrekBanner: {
     backgroundColor: C.paper3, borderRadius: 8, borderWidth: 1, borderColor: C.line,
     padding: 10, marginBottom: 12,
   },
-  noTrekText: { fontFamily: FF.mono, fontSize: 10, color: C.ink, opacity: 0.5, lineHeight: 15 },
+  noTrekText: { fontFamily: FF.mono, fontSize: 10, color: C.inkMuted, lineHeight: 15 },
 
   sectionTitle: {
     fontFamily: FF.display, fontSize: 18, fontWeight: '600', color: C.ink,
@@ -200,7 +200,7 @@ const s = StyleSheet.create({
   cardIcon: { fontSize: 18 },
   cardTitle: { fontFamily: FF.display, fontSize: 15, fontWeight: '600', color: C.ink, flex: 1, letterSpacing: -0.3 },
   cardMeta: { fontFamily: FF.mono, fontSize: 10, color: C.accent, letterSpacing: 0.5, fontWeight: '500' },
-  chevron: { fontFamily: FF.mono, fontSize: 12, color: C.ink, opacity: 0.5, marginLeft: 4 },
+  chevron: { fontFamily: FF.mono, fontSize: 12, color: C.inkMuted, marginLeft: 4 },
 
   cardBody: { borderTopWidth: 1, borderTopColor: C.line, padding: 14 },
 
@@ -210,7 +210,7 @@ const s = StyleSheet.create({
   stepConnector: { flex: 1, width: 2, backgroundColor: C.line, marginTop: 3 },
   stepContent: { flex: 1 },
   stepLabel: { fontFamily: FF.mono, fontSize: 12, fontWeight: '500', color: C.ink },
-  stepMeta: { fontFamily: FF.mono, fontSize: 10, color: C.ink, opacity: 0.5, marginTop: 2 },
+  stepMeta: { fontFamily: FF.mono, fontSize: 10, color: C.inkMuted, marginTop: 2 },
   stepBadge: { alignSelf: 'flex-start', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2, marginTop: 4 },
   stepBadgeText: { fontFamily: FF.mono, fontSize: 9, letterSpacing: 0.3 },
 
@@ -219,5 +219,5 @@ const s = StyleSheet.create({
   infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: C.line2 },
   infoIcon: { fontSize: 16, width: 24, textAlign: 'center' },
   infoLabel: { fontFamily: FF.mono, fontSize: 12, color: C.ink, fontWeight: '500' },
-  infoSub: { fontFamily: FF.mono, fontSize: 10, color: C.ink, opacity: 0.5, marginTop: 1 },
+  infoSub: { fontFamily: FF.mono, fontSize: 10, color: C.inkMuted, marginTop: 1 },
 });

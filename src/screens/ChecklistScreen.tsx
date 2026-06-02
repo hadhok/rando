@@ -219,7 +219,7 @@ const s = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
   sectionTitle: { fontFamily: FF.display, fontSize: 18, fontWeight: '600', color: C.ink, letterSpacing: -0.5 },
   resetBtn: { borderRadius: 8, borderWidth: 1, borderColor: C.line, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: C.paper3 },
-  resetBtnText: { fontFamily: FF.mono, fontSize: 10, color: C.ink, opacity: 0.6, letterSpacing: 0.5 },
+  resetBtnText: { fontFamily: FF.mono, fontSize: 10, color: C.inkMuted, letterSpacing: 0.5 },
 
   filterRow: { flexDirection: 'row', gap: 6 },
   filterBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, backgroundColor: C.paper3, borderWidth: 1, borderColor: C.line, alignItems: 'center' },
@@ -236,16 +236,16 @@ const s = StyleSheet.create({
   progressFill: { height: 5, backgroundColor: C.green, borderRadius: 3 },
 
   statsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  progressText: { fontFamily: FF.mono, fontSize: 10, color: C.ink, opacity: 0.5 },
+  progressText: { fontFamily: FF.mono, fontSize: 10, color: C.inkMuted },
   weightText: { fontFamily: FF.mono, fontSize: 10, color: C.blue, fontWeight: '500' },
 
   emptyState: { alignItems: 'center', paddingVertical: 40 },
   emptyIcon: { fontSize: 32, marginBottom: 8 },
-  emptyText: { fontFamily: FF.mono, fontSize: 13, color: C.ink, opacity: 0.4 },
+  emptyText: { fontFamily: FF.mono, fontSize: 13, color: C.inkMuted },
 
   section: { marginBottom: 14 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  sectionHeaderText: { fontFamily: FF.mono, fontSize: 9, letterSpacing: 1.2, textTransform: 'uppercase', color: C.ink, opacity: 0.5 },
+  sectionHeaderText: { fontFamily: FF.mono, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase', color: C.inkMuted },
   sectionLine: { flex: 1, height: 1, backgroundColor: C.line },
 
   item: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: C.line2 },
@@ -262,6 +262,6 @@ const s = StyleSheet.create({
   vitalDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: C.accent },
 
   itemMetaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 },
-  itemNote: { fontFamily: FF.mono, fontSize: 10, color: C.ink, opacity: 0.5, flex: 1 },
-  itemWeight: { fontFamily: FF.mono, fontSize: 9, color: C.blue, opacity: 0.7, marginLeft: 8 },
+  itemNote: { fontFamily: FF.mono, fontSize: 10, color: C.inkMuted, flex: 1 },
+  itemWeight: { fontFamily: FF.mono, fontSize: 9, color: C.blue, marginLeft: 8 },
 });
