@@ -101,7 +101,7 @@ export default function App() {
                 paddingTop: 2,
               },
               tabBarLabelStyle: {
-                fontSize: 8,
+                fontSize: 10,
                 fontFamily: FF.mono,
                 letterSpacing: 0.8,
                 textTransform: 'uppercase',
