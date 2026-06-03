@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { ETAPES, TOTAL_KM, TOTAL_DENIVELE, Etape } from '../data/etapes';
+import { ETAPES_BIDARRAY_SARE, TOTAL_KM_BS, TOTAL_DENIVELE_BS } from '../data/etapes_bidarray_sare';
 import { useGpx } from '../context/GpxContext';
 import { GpxWaypoint, GpxBadge, GpxTrack } from '../utils/gpxParser';
 import { BadgeType, Itineraire, ItDay, ItWaypoint, parseItineraire } from '../utils/itineraireParser';
@@ -393,7 +394,7 @@ function useHtmlImporter(onContent: (content: string) => void) {
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
-type TabId = 'gr10' | 'gpx' | 'html';
+type TabId = 'gr10' | 'bidarray-sare' | 'gpx' | 'html';
 
 export default function EtapesScreen() {
   const [selected, setSelected] = useState<Etape | null>(null);
@@ -448,13 +449,22 @@ export default function EtapesScreen() {
       </View>
 
       {/* Tab switcher */}
-      {(hasGpxTab || hasHtmlTab) && (
+      {(true || hasGpxTab || hasHtmlTab) && (
         <View style={s.tabRow}>
           <TouchableOpacity
             style={[s.tab, activeTab === 'gr10' && s.tabActive]}
             onPress={() => setActiveTab('gr10')}
           >
             <Text style={[s.tabTxt, activeTab === 'gr10' && s.tabTxtActive]}>GR10</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[s.tab, activeTab === 'bidarray-sare' && s.tabActiveTrek]}
+            onPress={() => setActiveTab('bidarray-sare')}
+          >
+            <Text style={[s.tabTxt, activeTab === 'bidarray-sare' && s.tabTxtTrek]} numberOfLines={1}>
+              🥾 Bidarray–Sare
+            </Text>
           </TouchableOpacity>
 
           {hasGpxTab && (
@@ -499,6 +509,24 @@ export default function EtapesScreen() {
         <HtmlItineraireView itin={itineraire} />
       ) : activeTab === 'gpx' && gpxTrack ? (
         <GpxItinerary track={gpxTrack} />
+      ) : activeTab === 'bidarray-sare' ? (
+        <FlatList
+          data={ETAPES_BIDARRAY_SARE}
+          keyExtractor={(item) => String(item.id)}
+          ListHeaderComponent={
+            <View style={s.trekHeader}>
+              <Text style={s.trekHeaderTitle}>Bidarray → Sare · 2 jours</Text>
+              <Text style={s.trekHeaderSub}>
+                {TOTAL_KM_BS} km · D+ {TOTAL_DENIVELE_BS.toLocaleString('fr')} m · via Crêtes d'Iparla & Ainhoa
+              </Text>
+            </View>
+          }
+          renderItem={({ item }) => (
+            <EtapeCard etape={item} onPress={() => setSelected(item)} />
+          )}
+          contentContainerStyle={s.list}
+          showsVerticalScrollIndicator={false}
+        />
       ) : (
         <FlatList
           data={ETAPES}
@@ -556,6 +584,11 @@ const s = StyleSheet.create({
     maxWidth: 160,
   },
   tabActive:     { borderBottomColor: '#264653', backgroundColor: '#F1FAEE' },
+  tabActiveTrek: { borderBottomColor: '#2A9D8F', backgroundColor: '#F0FAF8' },
+  tabTxtTrek:   { color: '#2A9D8F' },
+  trekHeader: { backgroundColor: '#2A9D8F', margin: 12, borderRadius: 10, padding: 14, gap: 4 },
+  trekHeaderTitle: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  trekHeaderSub: { color: 'rgba(255,255,255,0.8)', fontSize: 13 },
   tabActiveGpx:  { borderBottomColor: '#8338EC', backgroundColor: '#F5F0FF' },
   tabActiveHtml: { borderBottomColor: '#D97706', backgroundColor: '#FFFBEB' },
   tabTxt:      { fontSize: 12, fontWeight: '600', color: '#999' },
