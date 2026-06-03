@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ETAPES, TOTAL_KM, TOTAL_DENIVELE, Etape } from '../data/etapes';
+import { ETAPES, ETAPES_BIDARRAY_SARE, TOTAL_KM, TOTAL_DENIVELE, Etape } from '../data/etapes';
 import { useGpx } from '../context/GpxContext';
 import { GpxWaypoint, GpxBadge, GpxTrack } from '../utils/gpxParser';
 import { BadgeType, Itineraire, ItDay, ItWaypoint, parseItineraire } from '../utils/itineraireParser';
@@ -506,6 +506,17 @@ export default function EtapesScreen() {
           renderItem={({ item }) => (
             <EtapeCard etape={item} onPress={() => setSelected(item)} />
           )}
+          ListFooterComponent={
+            <>
+              <View style={s.trekSeparator}>
+                <Text style={s.trekSeparatorTitle}>🥾 Bidarray → Sare · 2 jours</Text>
+                <Text style={s.trekSeparatorSub}>33 km · D+ 1 800 m · via Crêtes d'Iparla & Ainhoa</Text>
+              </View>
+              {ETAPES_BIDARRAY_SARE.map((etape) => (
+                <EtapeCard key={etape.id} etape={etape} onPress={() => setSelected(etape)} />
+              ))}
+            </>
+          }
           contentContainerStyle={s.list}
           showsVerticalScrollIndicator={false}
         />
@@ -565,6 +576,11 @@ const s = StyleSheet.create({
   tabClear: { marginLeft: 'auto' as any, paddingHorizontal: 8, paddingVertical: 8, alignSelf: 'center' },
   tabClearTxt: { fontSize: 14, color: '#bbb' },
   list: { padding: 12, gap: 10 },
+  trekSeparator: {
+    backgroundColor: '#2A9D8F', borderRadius: 10, padding: 14, marginVertical: 8, gap: 4,
+  },
+  trekSeparatorTitle: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  trekSeparatorSub: { color: 'rgba(255,255,255,0.85)', fontSize: 12 },
   card: { backgroundColor: '#fff', borderRadius: 12, padding: 14, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   numBadge: { minWidth: 34, height: 34, borderRadius: 17, backgroundColor: '#264653', alignItems: 'center', justifyContent: 'center', marginRight: 10, paddingHorizontal: 6 },
