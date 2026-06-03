@@ -449,8 +449,7 @@ export default function EtapesScreen() {
       </View>
 
       {/* Tab switcher */}
-      {(true || hasGpxTab || hasHtmlTab) && (
-        <View style={s.tabRow}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tabRowOuter} contentContainerStyle={s.tabRow}>
           <TouchableOpacity
             style={[s.tab, activeTab === 'gr10' && s.tabActive]}
             onPress={() => setActiveTab('gr10')}
@@ -501,8 +500,7 @@ export default function EtapesScreen() {
               {activeTab === 'html' && <Text style={s.tabClearTxt}>✕</Text>}
             </TouchableOpacity>
           )}
-        </View>
-      )}
+        </ScrollView>
 
       {/* Content */}
       {activeTab === 'html' && itineraire ? (
@@ -564,11 +562,13 @@ const s = StyleSheet.create({
   importBtnLabel: { fontSize: 10, color: '#A8DADC', fontWeight: '600' },
   headerNote: { marginTop: 10, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 6, padding: 6 },
   headerNoteText: { color: '#E9C46A', fontSize: 12 },
-  tabRow: {
-    flexDirection: 'row',
+  tabRowOuter: {
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
+  },
+  tabRow: {
+    flexDirection: 'row',
     paddingHorizontal: 12,
     paddingTop: 8,
     paddingBottom: 0,
