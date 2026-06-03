@@ -262,4 +262,47 @@ export const TREKS: Trek[] = [
       },
     ],
   },
+  {
+    id: 'bidarray-sare',
+    name: 'Bidarray → Sare — Crêtes d\'Iparla',
+    days: 2,
+    distance: '33km',
+    dp: '+1.8k',
+    region: 'Pays B.',
+    maxAlt: '1044m',
+    difficulty: 2,
+    color: '#7c3aed',
+    cardElevPath:
+      'M0,54 L20,50 L50,42 L80,28 L110,14 L130,8 L145,6 L165,20 L190,38 L210,50 L230,52 L250,46 L270,40 L300,44 L330,48 L360,50 L390,52 L400,54 L400,60 L0,60 Z',
+    detailElevPath:
+      'M0,54 L25,48 L55,38 L85,22 L115,10 L135,6 L150,4 L165,8 L185,24 L205,42 L225,52 L245,48 L265,38 L290,42 L315,46 L345,50 L375,52 L400,54 L400,60 L0,60 Z',
+    trekDays: [
+      {
+        title: 'Jour 1 · Bidarray → Ainhoa · Départ 08h00',
+        stages: [
+          { name: 'Bidarray', dist: '0km', alt: '110m', dp: '—', time: '08h00', badges: ['water'] },
+          { name: 'Pas de Roland', dist: '3km', alt: '350m', dp: '+240m', time: '09h12' },
+          { name: 'Arête Iparla (sommet)', dist: '9km', alt: '1044m', dp: '+934m', time: '12h48', rowType: 'highlight' },
+          { name: 'Col Harrieta', dist: '13km', alt: '687m', dp: '+1000m', time: '14h20', badges: ['water'] },
+          { name: 'Col Méhatsé', dist: '15km', alt: '708m', dp: '+1050m', time: '15h00' },
+          { name: 'Ainhoa', dist: '19km', alt: '130m', dp: '+1100m', time: '17h30', badges: ['village', 'water'], rowType: 'biv' },
+        ],
+      },
+      {
+        title: 'Jour 2 · Ainhoa → Sare · Départ 09h00',
+        stages: [
+          { name: 'Ainhoa', dist: '0km', alt: '130m', dp: '—', time: '09h00' },
+          { name: 'Col Meharroste', dist: '4km', alt: '486m', dp: '+380m', time: '10h25', badges: ['water'] },
+          { name: 'Crête de Larraun', dist: '8km', alt: '520m', dp: '+520m', time: '11h40' },
+          { name: 'Col Lizuniaga', dist: '11km', alt: '441m', dp: '+580m', time: '12h30' },
+          { name: 'Sare', dist: '14km', alt: '70m', dp: '+700m', time: '14h00', badges: ['village', 'water'], rowType: 'highlight' },
+        ],
+      },
+    ],
+    notes: [
+      { icon: '⚠️', label: 'Arête Iparla exposée', sub: 'Vent violent fréquent · Ne pas s\'engager par orage · Prévoir 2 L d\'eau' },
+      { icon: '🅿️', label: 'Parking Bidarray', sub: 'Parking gratuit bourg · Retour bus ATCRB C7 depuis Ainhoa' },
+      { icon: '🚌', label: 'Retour Sare → Hendaye', sub: 'Bus ATCRB C6 GRATUIT · Sare → Saint-Jean-de-Luz → Hendaye' },
+    ],
+  },
 ];
