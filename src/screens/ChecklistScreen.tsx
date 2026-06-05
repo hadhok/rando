@@ -1,19 +1,12 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert,
-  Modal, TextInput, KeyboardAvoidingView, Platform, Pressable,
+  Modal, TextInput, KeyboardAvoidingView, Platform, Pressable, FlatList,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from '@react-navigation/native';
 import { C, FF, notebookBg } from '../theme';
 import { CHECKLIST_DATA, CheckItem, WhoType } from '../data/checklist';
-
-const CHECKED_KEY      = 'rando_checked_v1';
-const CUSTOM_ITEMS_KEY = 'rando_custom_items_v1';
-
-interface CustomItem extends CheckItem {
-  sectionKey: string;
-}
+import { GEAR_CATALOG, GearCatalogItem, GEAR_CATALOG_CATEGORIES } from '../data/gearCatalog';
+import { useGpx, CustomItem } from '../context/GpxContext';
 
 type PersonFilter = 'all' | WhoType;
 type ModeFilter   = 'normal' | 'vital' | 'packing';
@@ -132,82 +125,184 @@ function AddItemModal({ sectionKey, onSave, onClose }: AddModalProps) {
   );
 }
 
+// ─── Gear Catalogue modal ─────────────────────────────────────────────────────
+
+interface CatalogueModalProps {
+  existingIds: Set<string>;
+  onAdd: (items: CustomItem[]) => void;
+  onClose: () => void;
+}
+
+function CatalogueModal({ existingIds, onAdd, onClose }: CatalogueModalProps) {
+  const [search, setSearch]       = useState('');
+  const [catFilter, setCatFilter] = useState<string>('Tous');
+  const [selected, setSelected]   = useState<Set<string>>(new Set());
+
+  const categories = ['Tous', ...GEAR_CATALOG_CATEGORIES];
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return GEAR_CATALOG.filter(item => {
+      if (catFilter !== 'Tous' && item.category !== catFilter) return false;
+      if (q && !item.name.toLowerCase().includes(q) && !(item.brand ?? '').toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [search, catFilter]);
+
+  const toggle = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const handleAdd = () => {
+    const toAdd: CustomItem[] = GEAR_CATALOG
+      .filter(g => selected.has(g.id))
+      .map(g => ({
+        id: `gc_custom_${g.id}_${Date.now()}`,
+        name: g.brand ? `${g.name} (${g.brand})` : g.name,
+        who: g.suggestedWho,
+        vital: g.vital,
+        weight: g.weight,
+        note: g.note,
+        sectionKey: g.category,
+      }));
+    onAdd(toAdd);
+  };
+
+  return (
+    <Modal transparent animationType="slide" onRequestClose={onClose}>
+      <View style={cat.root}>
+        <View style={cat.header}>
+          <View style={{ flex: 1 }}>
+            <Text style={cat.title}>Catalogue gear</Text>
+            <Text style={cat.sub}>{GEAR_CATALOG.length} articles · sélectionnez pour importer</Text>
+          </View>
+          <TouchableOpacity onPress={onClose} style={cat.closeBtn}>
+            <Text style={cat.closeBtnText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Search */}
+        <View style={cat.searchRow}>
+          <TextInput
+            style={cat.searchInput}
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Rechercher…"
+            placeholderTextColor={C.inkMuted}
+          />
+        </View>
+
+        {/* Category filter */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={cat.catScroll} contentContainerStyle={{ paddingHorizontal: 16, gap: 6 }}>
+          {categories.map(c => (
+            <TouchableOpacity
+              key={c}
+              style={[cat.catBtn, catFilter === c && cat.catBtnActive]}
+              onPress={() => setCatFilter(c)}
+            >
+              <Text style={[cat.catBtnText, catFilter === c && cat.catBtnTextActive]}>{c}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* List */}
+        <FlatList
+          data={filtered}
+          keyExtractor={item => item.id}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+          ListEmptyComponent={<Text style={cat.empty}>Aucun article</Text>}
+          renderItem={({ item }) => {
+            const isSelected = selected.has(item.id);
+            const alreadyAdded = existingIds.has(item.id);
+            const who = WHO_STYLE[item.suggestedWho];
+            return (
+              <TouchableOpacity
+                style={[cat.item, isSelected && cat.itemSelected, alreadyAdded && cat.itemAdded]}
+                onPress={() => !alreadyAdded && toggle(item.id)}
+                activeOpacity={alreadyAdded ? 1 : 0.7}
+              >
+                <View style={[cat.checkBox, isSelected && cat.checkBoxSelected]}>
+                  {isSelected && <Text style={cat.checkMark}>✓</Text>}
+                  {alreadyAdded && <Text style={cat.checkMark}>✓</Text>}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={cat.itemNameRow}>
+                    <Text style={[cat.itemName, alreadyAdded && { color: C.inkMuted }]}>{item.name}</Text>
+                    {item.brand && <Text style={cat.brand}>{item.brand}</Text>}
+                    {item.vital && <View style={s.vitalDot} />}
+                  </View>
+                  <View style={cat.itemMeta}>
+                    <View style={[cat.whoBadge, { backgroundColor: who.bg }]}>
+                      <Text style={[cat.whoText, { color: who.tc }]}>{who.label}</Text>
+                    </View>
+                    <Text style={cat.weight}>{formatWeight(item.weight)}</Text>
+                    {item.note && <Text style={cat.note} numberOfLines={1}>{item.note}</Text>}
+                  </View>
+                </View>
+                {alreadyAdded && <Text style={cat.addedLabel}>Déjà ajouté</Text>}
+              </TouchableOpacity>
+            );
+          }}
+        />
+
+        {/* Footer */}
+        {selected.size > 0 && (
+          <View style={cat.footer}>
+            <TouchableOpacity style={cat.addBtn} onPress={handleAdd}>
+              <Text style={cat.addBtnText}>
+                + Ajouter {selected.size} article{selected.size > 1 ? 's' : ''} au sac
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    </Modal>
+  );
+}
+
 // ─── Main screen ─────────────────────────────────────────────────────────────
 
 export default function ChecklistScreen() {
-  const [person, setPerson]           = useState<PersonFilter>('all');
-  const [mode, setMode]               = useState<ModeFilter>('normal');
-  const [checked, setChecked]         = useState<Record<string, boolean>>({});
-  const [customItems, setCustomItems] = useState<CustomItem[]>([]);
-  const [addSection, setAddSection]   = useState<string | null>(null);
+  const {
+    checklistChecked, toggleChecked, resetChecked,
+    customItems, addCustomItem, deleteCustomItem,
+  } = useGpx();
 
-  useFocusEffect(
-    useCallback(() => {
-      AsyncStorage.getItem(CHECKED_KEY).then(raw => setChecked(raw ? JSON.parse(raw) : {}));
-      AsyncStorage.getItem(CUSTOM_ITEMS_KEY).then(raw => setCustomItems(raw ? JSON.parse(raw) : []));
-    }, [])
-  );
+  const [person, setPerson]         = useState<PersonFilter>('all');
+  const [mode, setMode]             = useState<ModeFilter>('normal');
+  const [addSection, setAddSection] = useState<string | null>(null);
+  const [showCatalogue, setShowCatalogue] = useState(false);
 
-  const toggle = useCallback((id: string) => {
-    setChecked(prev => {
-      const next = { ...prev, [id]: !prev[id] };
-      AsyncStorage.setItem(CHECKED_KEY, JSON.stringify(next));
-      return next;
-    });
-  }, []);
+  const handleReset = () => {
+    Alert.alert(
+      'Réinitialiser le sac ?',
+      'Tous les articles seront décochés.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Réinitialiser', style: 'destructive', onPress: resetChecked },
+      ]
+    );
+  };
 
-  const handleAddItem = useCallback((item: CustomItem) => {
-    setCustomItems(prev => {
-      const next = [...prev, item];
-      AsyncStorage.setItem(CUSTOM_ITEMS_KEY, JSON.stringify(next));
-      return next;
-    });
-    setAddSection(null);
-  }, []);
-
-  const handleDeleteItem = useCallback((id: string, name: string) => {
+  const handleDeleteItem = (id: string, name: string) => {
     Alert.alert(
       'Supprimer cet article ?',
       `"${name}" sera retiré de la liste.`,
       [
         { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Supprimer',
-          style: 'destructive',
-          onPress: () => {
-            setCustomItems(prev => {
-              const next = prev.filter(i => i.id !== id);
-              AsyncStorage.setItem(CUSTOM_ITEMS_KEY, JSON.stringify(next));
-              return next;
-            });
-            setChecked(prev => {
-              const next = { ...prev };
-              delete next[id];
-              AsyncStorage.setItem(CHECKED_KEY, JSON.stringify(next));
-              return next;
-            });
-          },
-        },
+        { text: 'Supprimer', style: 'destructive', onPress: () => deleteCustomItem(id) },
       ]
     );
-  }, []);
+  };
 
-  const handleReset = () => {
-    Alert.alert(
-      'Réinitialiser le sac ?',
-      'Tous les articles seront décochés pour un nouveau départ.',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Réinitialiser',
-          style: 'destructive',
-          onPress: () => {
-            setChecked({});
-            AsyncStorage.removeItem(CHECKED_KEY);
-          },
-        },
-      ]
-    );
+  const handleAddFromCatalogue = (items: CustomItem[]) => {
+    items.forEach(addCustomItem);
+    setShowCatalogue(false);
   };
 
   // Merge built-in sections with custom items
@@ -215,48 +310,49 @@ export default function ChecklistScreen() {
     return CHECKLIST_DATA.map(sec => ({
       ...sec,
       items: [
-        ...sec.items,
-        ...customItems.filter(ci => ci.sectionKey === sec.section),
-      ] as (CheckItem & { _custom?: boolean })[],
-    })).map(sec => ({
-      ...sec,
-      items: sec.items.map(item => ({
-        ...item,
-        _custom: customItems.some(ci => ci.id === item.id),
-      })),
+        ...sec.items.map(i => ({ ...i, _custom: false })),
+        ...customItems.filter(ci => ci.sectionKey === sec.section).map(ci => ({ ...ci, _custom: true })),
+      ],
     }));
   }, [customItems]);
 
-  // Filter items
-  const filteredSections = mergedSections.map(sec => ({
-    ...sec,
-    items: sec.items.filter(item => {
-      if (person !== 'all' && item.who !== person) return false;
-      if (mode === 'vital'   && !item.vital)        return false;
-      if (mode === 'packing' && !!checked[item.id]) return false;
-      return true;
-    }),
-  })).filter(sec => sec.items.length > 0 || mode === 'normal');
+  // IDs already in the checklist (built-in catalogue IDs extracted from custom items)
+  const existingCatalogueIds = useMemo(() => {
+    const ids = new Set<string>();
+    customItems.forEach(ci => {
+      // gc_custom_<originalId>_<timestamp>
+      const m = ci.id.match(/^gc_custom_(.+)_\d+$/);
+      if (m) ids.add(m[1]);
+    });
+    return ids;
+  }, [customItems]);
 
   // Stats
   let total = 0, done = 0, totalW = 0, doneW = 0;
-  filteredSections.forEach(sec =>
-    sec.items.forEach(item => {
-      total++;
-      totalW += item.weight ?? 0;
-      if (checked[item.id]) { done++; doneW += item.weight ?? 0; }
-    })
+  mergedSections.forEach(sec =>
+    sec.items
+      .filter(item => {
+        if (person !== 'all' && item.who !== person) return false;
+        if (mode === 'vital' && !item.vital) return false;
+        if (mode === 'packing' && !!checklistChecked[item.id]) return false;
+        return true;
+      })
+      .forEach(item => {
+        total++;
+        totalW += item.weight ?? 0;
+        if (checklistChecked[item.id]) { done++; doneW += item.weight ?? 0; }
+      })
   );
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const pct    = total > 0 ? Math.round((done / total) * 100) : 0;
   const allDone = total > 0 && done === total;
 
   const weightByPerson = useMemo(() => {
     const w = { papa: 0, fille: 0, shared: 0 };
     mergedSections.forEach(sec => sec.items.forEach(item => {
-      if (checked[item.id] && item.weight) w[item.who] += item.weight;
+      if (checklistChecked[item.id] && item.weight) w[item.who] += item.weight;
     }));
     return w;
-  }, [checked, mergedSections]);
+  }, [checklistChecked, mergedSections]);
   const totalCheckedW = weightByPerson.papa + weightByPerson.fille + weightByPerson.shared;
   const wColor = totalCheckedW > 10000 ? C.accent : totalCheckedW > 7000 ? C.accent2 : C.green;
   const wLabel = totalCheckedW > 10000 ? 'Lourd' : totalCheckedW > 7000 ? 'Modéré' : 'Léger';
@@ -277,12 +373,17 @@ export default function ChecklistScreen() {
   return (
     <View style={[s.root, notebookBg as any]}>
       <ScrollView contentContainerStyle={s.scroll}>
-        {/* Title + reset */}
+        {/* Title row */}
         <View style={s.titleRow}>
           <Text style={s.sectionTitle}>Checklist sac</Text>
-          <TouchableOpacity onPress={handleReset} style={s.resetBtn}>
-            <Text style={s.resetBtnText}>↺ Réinit.</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TouchableOpacity onPress={() => setShowCatalogue(true)} style={[s.resetBtn, { borderColor: C.blue }]}>
+              <Text style={[s.resetBtnText, { color: C.blue }]}>📦 Catalogue</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleReset} style={s.resetBtn}>
+              <Text style={s.resetBtnText}>↺ Réinit.</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Person filter */}
@@ -293,9 +394,7 @@ export default function ChecklistScreen() {
               style={[s.filterBtn, person === f.key && s.filterBtnActive]}
               onPress={() => setPerson(f.key)}
             >
-              <Text style={[s.filterBtnText, person === f.key && s.filterBtnTextActive]}>
-                {f.label}
-              </Text>
+              <Text style={[s.filterBtnText, person === f.key && s.filterBtnTextActive]}>{f.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -308,9 +407,7 @@ export default function ChecklistScreen() {
               style={[s.modeBtn, mode === f.key && s.modeBtnActive]}
               onPress={() => setMode(f.key)}
             >
-              <Text style={[s.modeBtnText, mode === f.key && s.modeBtnTextActive]}>
-                {f.icon} {f.label}
-              </Text>
+              <Text style={[s.modeBtnText, mode === f.key && s.modeBtnTextActive]}>{f.icon} {f.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -320,15 +417,10 @@ export default function ChecklistScreen() {
           <View style={[s.weightCard, { borderLeftColor: wColor }]}>
             <View style={s.weightHeaderRow}>
               <Text style={s.weightTitle}>🎒 Poids emballé</Text>
-              <Text style={[s.weightTotal, { color: wColor }]}>
-                {formatWeight(totalCheckedW)} · {wLabel}
-              </Text>
+              <Text style={[s.weightTotal, { color: wColor }]}>{formatWeight(totalCheckedW)} · {wLabel}</Text>
             </View>
             <View style={s.weightBarBg}>
-              <View style={[s.weightBarFill, {
-                width: `${Math.min(100, (totalCheckedW / 15000) * 100)}%` as any,
-                backgroundColor: wColor,
-              }]} />
+              <View style={[s.weightBarFill, { width: `${Math.min(100, (totalCheckedW / 15000) * 100)}%` as any, backgroundColor: wColor }]} />
             </View>
             <View style={s.weightPersonRow}>
               {weightByPerson.papa > 0 && (
@@ -358,50 +450,26 @@ export default function ChecklistScreen() {
           <View style={[s.progressFill, { width: `${pct}%` as any }]} />
         </View>
         <View style={s.statsRow}>
-          <Text style={s.progressText}>
-            {allDone ? '✓ Sac complet !' : `${done} / ${total} cochés`}
-          </Text>
-          {totalW > 0 && (
-            <Text style={s.weightText}>
-              🎒 {formatWeight(doneW)} / {formatWeight(totalW)}
-            </Text>
-          )}
+          <Text style={s.progressText}>{allDone ? '✓ Sac complet !' : `${done} / ${total} cochés`}</Text>
+          {totalW > 0 && <Text style={s.weightText}>🎒 {formatWeight(doneW)} / {formatWeight(totalW)}</Text>}
         </View>
 
-        {/* Empty state */}
-        {filteredSections.every(s => s.items.length === 0) && (
-          <View style={s.emptyState}>
-            <Text style={s.emptyIcon}>
-              {mode === 'packing' ? '✓' : '☐'}
-            </Text>
-            <Text style={s.emptyText}>
-              {mode === 'packing'
-                ? 'Tout est emballé !'
-                : 'Aucun article pour ce filtre.'}
-            </Text>
-          </View>
-        )}
-
         {/* Sections */}
-        {CHECKLIST_DATA.map(builtInSec => {
-          const merged = mergedSections.find(s => s.section === builtInSec.section)!;
-          const filtered = merged.items.filter(item => {
+        {mergedSections.map(sec => {
+          const filtered = sec.items.filter(item => {
             if (person !== 'all' && item.who !== person) return false;
-            if (mode === 'vital'   && !item.vital)        return false;
-            if (mode === 'packing' && !!checked[item.id]) return false;
+            if (mode === 'vital' && !item.vital) return false;
+            if (mode === 'packing' && !!checklistChecked[item.id]) return false;
             return true;
           });
           if (filtered.length === 0 && mode !== 'normal') return null;
 
           return (
-            <View key={builtInSec.section} style={s.section}>
+            <View key={sec.section} style={s.section}>
               <View style={s.sectionHeader}>
-                <Text style={s.sectionHeaderText}>{builtInSec.section}</Text>
+                <Text style={s.sectionHeaderText}>{sec.section}</Text>
                 <View style={s.sectionLine} />
-                <TouchableOpacity
-                  style={s.addBtn}
-                  onPress={() => setAddSection(builtInSec.section)}
-                >
+                <TouchableOpacity style={s.addBtn} onPress={() => setAddSection(sec.section)}>
                   <Text style={s.addBtnText}>+ Ajouter</Text>
                 </TouchableOpacity>
               </View>
@@ -410,20 +478,12 @@ export default function ChecklistScreen() {
                 <Text style={s.emptySectionText}>Aucun article visible</Text>
               ) : (
                 filtered.map((item, idx) => {
-                  const isDone = !!checked[item.id];
-                  const who = WHO_STYLE[item.who];
-                  const isCustom = !!(item as any)._custom;
+                  const isDone   = !!checklistChecked[item.id];
+                  const who      = WHO_STYLE[item.who];
+                  const isCustom = item._custom;
                   return (
-                    <View key={item.id} style={[
-                      s.item,
-                      isDone && s.itemDone,
-                      idx === filtered.length - 1 && { borderBottomWidth: 0 },
-                    ]}>
-                      <TouchableOpacity
-                        style={s.itemTouchable}
-                        onPress={() => toggle(item.id)}
-                        activeOpacity={0.7}
-                      >
+                    <View key={item.id} style={[s.item, isDone && s.itemDone, idx === filtered.length - 1 && { borderBottomWidth: 0 }]}>
+                      <TouchableOpacity style={s.itemTouchable} onPress={() => toggleChecked(item.id)} activeOpacity={0.7}>
                         <View style={[s.checkbox, isDone && s.checkboxDone]}>
                           {isDone && <Text style={s.checkmark}>✓</Text>}
                         </View>
@@ -437,7 +497,7 @@ export default function ChecklistScreen() {
                             {isCustom && <View style={s.customDot} />}
                           </View>
                           <View style={s.itemMetaRow}>
-                            {item.note ? <Text style={s.itemNote}>{item.note}</Text> : <Text />}
+                            {(item as any).note ? <Text style={s.itemNote}>{(item as any).note}</Text> : <Text />}
                             {item.weight ? <Text style={s.itemWeight}>{formatWeight(item.weight)}</Text> : null}
                           </View>
                         </View>
@@ -463,13 +523,23 @@ export default function ChecklistScreen() {
       {addSection && (
         <AddItemModal
           sectionKey={addSection}
-          onSave={handleAddItem}
+          onSave={item => { addCustomItem(item); setAddSection(null); }}
           onClose={() => setAddSection(null)}
+        />
+      )}
+
+      {showCatalogue && (
+        <CatalogueModal
+          existingIds={existingCatalogueIds}
+          onAdd={handleAddFromCatalogue}
+          onClose={() => setShowCatalogue(false)}
         />
       )}
     </View>
   );
 }
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.paper },
@@ -509,17 +579,14 @@ const s = StyleSheet.create({
   weightChipLabel: { fontFamily: FF.mono, fontSize: 9, color: C.inkMuted, letterSpacing: 0.5, textTransform: 'uppercase' },
   weightChipVal: { fontFamily: FF.mono, fontSize: 11, color: C.ink, fontWeight: '600', marginTop: 1 },
 
-  emptyState: { alignItems: 'center', paddingVertical: 40 },
-  emptyIcon: { fontSize: 32, marginBottom: 8 },
-  emptyText: { fontFamily: FF.mono, fontSize: 13, color: C.inkMuted },
-  emptySectionText: { fontFamily: FF.mono, fontSize: 11, color: C.inkMuted, paddingVertical: 8, paddingLeft: 4 },
-
   section: { marginBottom: 14 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
   sectionHeaderText: { fontFamily: FF.mono, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase', color: C.inkMuted },
   sectionLine: { flex: 1, height: 1, backgroundColor: C.line },
   addBtn: { borderRadius: 6, borderWidth: 1, borderColor: C.line, paddingHorizontal: 7, paddingVertical: 3, backgroundColor: C.paper3 },
   addBtnText: { fontFamily: FF.mono, fontSize: 9, color: C.blue, letterSpacing: 0.3 },
+
+  emptySectionText: { fontFamily: FF.mono, fontSize: 11, color: C.inkMuted, paddingVertical: 8, paddingLeft: 4 },
 
   item: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: C.line2 },
   itemTouchable: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 13 },
@@ -544,58 +611,70 @@ const s = StyleSheet.create({
   deleteBtnText: { fontSize: 18, color: C.accent, fontWeight: '400', lineHeight: 20 },
 });
 
-// ─── Modal styles ─────────────────────────────────────────────────────────────
+// ─── Modal styles (add item) ──────────────────────────────────────────────────
 
 const m = StyleSheet.create({
-  backdrop: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: C.paper,
-    borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    padding: 24, paddingBottom: 40,
-  },
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: C.paper, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
   sheetTitle: { fontFamily: FF.display, fontSize: 17, fontWeight: '600', color: C.ink, marginBottom: 2 },
   sheetSub: { fontFamily: FF.mono, fontSize: 10, color: C.inkMuted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 20 },
-
   label: { fontFamily: FF.mono, fontSize: 10, color: C.inkMuted, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6, marginTop: 14 },
-  input: {
-    borderWidth: 1, borderColor: C.line, borderRadius: 8,
-    paddingHorizontal: 12, paddingVertical: 10,
-    fontFamily: FF.mono, fontSize: 13, color: C.ink,
-    backgroundColor: C.paper2,
-  },
-
+  input: { borderWidth: 1, borderColor: C.line, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontFamily: FF.mono, fontSize: 13, color: C.ink, backgroundColor: C.paper2 },
   whoRow: { flexDirection: 'row', gap: 8 },
-  whoBtn: {
-    flex: 1, paddingVertical: 9, borderRadius: 8,
-    borderWidth: 1.5, borderColor: C.line,
-    backgroundColor: C.paper3, alignItems: 'center',
-  },
+  whoBtn: { flex: 1, paddingVertical: 9, borderRadius: 8, borderWidth: 1.5, borderColor: C.line, backgroundColor: C.paper3, alignItems: 'center' },
   whoBtnText: { fontFamily: FF.mono, fontSize: 11, color: C.ink, fontWeight: '500' },
-
   row: { flexDirection: 'row', alignItems: 'flex-end' },
-  vitalBtn: {
-    borderWidth: 1.5, borderColor: C.line,
-    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10,
-    backgroundColor: C.paper3,
-  },
+  vitalBtn: { borderWidth: 1.5, borderColor: C.line, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: C.paper3 },
   vitalBtnActive: { backgroundColor: C.accent, borderColor: C.accent },
   vitalBtnText: { fontFamily: FF.mono, fontSize: 11, color: C.ink },
   vitalBtnTextActive: { color: '#fff' },
-
   actions: { flexDirection: 'row', gap: 10, marginTop: 24 },
-  cancelBtn: {
-    flex: 1, paddingVertical: 13, borderRadius: 10,
-    borderWidth: 1, borderColor: C.line,
-    backgroundColor: C.paper3, alignItems: 'center',
-  },
+  cancelBtn: { flex: 1, paddingVertical: 13, borderRadius: 10, borderWidth: 1, borderColor: C.line, backgroundColor: C.paper3, alignItems: 'center' },
   cancelBtnText: { fontFamily: FF.mono, fontSize: 12, color: C.inkMuted },
-  saveBtn: {
-    flex: 2, paddingVertical: 13, borderRadius: 10,
-    backgroundColor: C.ink, alignItems: 'center',
-  },
+  saveBtn: { flex: 2, paddingVertical: 13, borderRadius: 10, backgroundColor: C.ink, alignItems: 'center' },
   saveBtnDisabled: { opacity: 0.4 },
   saveBtnText: { fontFamily: FF.mono, fontSize: 12, color: C.paper, fontWeight: '600' },
+});
+
+// ─── Catalogue modal styles ───────────────────────────────────────────────────
+
+const cat = StyleSheet.create({
+  root: { flex: 1, backgroundColor: C.paper, marginTop: 60, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
+  header: { flexDirection: 'row', alignItems: 'flex-start', padding: 20, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: C.line },
+  title: { fontFamily: FF.display, fontSize: 18, fontWeight: '600', color: C.ink },
+  sub: { fontFamily: FF.mono, fontSize: 10, color: C.inkMuted, marginTop: 2 },
+  closeBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.paper3, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.line },
+  closeBtnText: { fontFamily: FF.mono, fontSize: 13, color: C.inkMuted },
+
+  searchRow: { paddingHorizontal: 16, paddingVertical: 10 },
+  searchInput: { borderWidth: 1, borderColor: C.line, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontFamily: FF.mono, fontSize: 13, color: C.ink, backgroundColor: C.paper2 },
+
+  catScroll: { flexGrow: 0, marginBottom: 4 },
+  catBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, backgroundColor: C.paper3, borderWidth: 1, borderColor: C.line },
+  catBtnActive: { backgroundColor: C.ink, borderColor: C.ink },
+  catBtnText: { fontFamily: FF.mono, fontSize: 10, color: C.ink },
+  catBtnTextActive: { color: C.paper },
+
+  empty: { fontFamily: FF.mono, fontSize: 13, color: C.inkMuted, textAlign: 'center', marginTop: 40 },
+
+  item: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.line2 },
+  itemSelected: { backgroundColor: '#f0fdf4' },
+  itemAdded: { opacity: 0.5 },
+  checkBox: { width: 22, height: 22, borderRadius: 5, borderWidth: 1.5, borderColor: C.line, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  checkBoxSelected: { backgroundColor: C.green, borderColor: C.green },
+  checkMark: { color: '#fff', fontSize: 12, fontWeight: '700' },
+
+  itemNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  itemName: { fontFamily: FF.mono, fontSize: 12, fontWeight: '500', color: C.ink },
+  brand: { fontFamily: FF.mono, fontSize: 9, color: C.inkMuted, backgroundColor: C.paper3, borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1 },
+  itemMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3, flexWrap: 'wrap' },
+  whoBadge: { borderRadius: 10, paddingHorizontal: 5, paddingVertical: 1 },
+  whoText: { fontFamily: FF.mono, fontSize: 9 },
+  weight: { fontFamily: FF.mono, fontSize: 10, color: C.blue, fontWeight: '500' },
+  note: { fontFamily: FF.mono, fontSize: 9, color: C.inkMuted, flex: 1 },
+  addedLabel: { fontFamily: FF.mono, fontSize: 9, color: C.inkMuted },
+
+  footer: { padding: 16, paddingBottom: 32, borderTopWidth: 1, borderTopColor: C.line },
+  addBtn: { backgroundColor: C.ink, borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
+  addBtnText: { fontFamily: FF.mono, fontSize: 13, fontWeight: '600', color: C.paper },
 });
