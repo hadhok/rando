@@ -29,7 +29,10 @@ values
   ('__settings__',    null, '', '', '{}', '[]', now())
 on conflict (code) do nothing;
 
--- 5. Vérification finale
+-- 5. Remet le trek actif par défaut
+update rando_sync set active_trek = 'ayous' where code = '__settings__';
+
+-- 6. Vérification finale
 select code, active_trek, trek_note, trek_date,
        (gpx_track->>'name') as gpx_name,
        jsonb_array_length(checklist_custom) as custom_count,
