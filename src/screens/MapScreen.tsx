@@ -174,7 +174,7 @@ export default function MapScreen() {
             <Polyline
               key={`trek-${trekId}`}
               coordinates={pts.map(([lat, lng]) => ({ latitude: lat, longitude: lng }))}
-              strokeColor={isActive ? COLORS.gpx : 'rgba(131,56,236,0.25)'}
+              strokeColor={isActive ? COLORS.gpx : '#8338EC40'}
               strokeWidth={isActive ? 3.5 : 1.5}
             />
           );
