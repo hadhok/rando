@@ -356,9 +356,11 @@ export default function MapScreen() {
             <Polyline
               key={`trek-${trekId}`}
               positions={pts}
-              color={COLORS.gpx}
-              weight={isActive ? 3.5 : 1.5}
-              opacity={isActive ? 1 : 0.25}
+              pathOptions={{
+                color: COLORS.gpx,
+                weight: isActive ? 4 : 2,
+                opacity: isActive ? 1 : 0.3,
+              }}
             />
           );
         })}
