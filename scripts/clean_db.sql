@@ -6,10 +6,12 @@ delete from rando_sync
 where code not in ('gr10','ayous','artouste','bidarray-sare','sainte-victoire','__settings__');
 
 -- 2. Créer les colonnes manquantes si besoin
+alter table rando_sync add column if not exists active_trek text default null;
 alter table rando_sync add column if not exists trek_note text default '';
 alter table rando_sync add column if not exists trek_date text default '';
 alter table rando_sync add column if not exists checklist_checked jsonb default '{}';
 alter table rando_sync add column if not exists checklist_custom  jsonb default '[]';
+alter table rando_sync add column if not exists gpx_track jsonb default null;
 
 -- 3. Supprimer les colonnes obsolètes liées à l'ancien système multi-profil
 alter table rando_sync drop column if exists itineraire;
