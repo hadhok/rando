@@ -1,13 +1,19 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert,
+  Modal, TextInput, KeyboardAvoidingView, Platform, Pressable,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { C, FF, notebookBg } from '../theme';
-import { CHECKLIST_DATA, WhoType } from '../data/checklist';
+import { CHECKLIST_DATA, CheckItem, WhoType } from '../data/checklist';
 
-const CHECKED_KEY = 'rando_checked_v1';
+const CHECKED_KEY      = 'rando_checked_v1';
+const CUSTOM_ITEMS_KEY = 'rando_custom_items_v1';
+
+interface CustomItem extends CheckItem {
+  sectionKey: string;
+}
 
 type PersonFilter = 'all' | WhoType;
 type ModeFilter   = 'normal' | 'vital' | 'packing';
@@ -22,14 +28,123 @@ function formatWeight(g: number): string {
   return g >= 1000 ? `${(g / 1000).toFixed(1)}kg` : `${g}g`;
 }
 
+// ─── Add-item modal ──────────────────────────────────────────────────────────
+
+interface AddModalProps {
+  sectionKey: string;
+  onSave: (item: CustomItem) => void;
+  onClose: () => void;
+}
+
+function AddItemModal({ sectionKey, onSave, onClose }: AddModalProps) {
+  const [name, setName]     = useState('');
+  const [who, setWho]       = useState<WhoType>('shared');
+  const [vital, setVital]   = useState(false);
+  const [weight, setWeight] = useState('');
+
+  const save = () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const w = parseInt(weight, 10);
+    onSave({
+      id: `custom_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      name: trimmed,
+      who,
+      vital,
+      weight: !isNaN(w) && w > 0 ? w : undefined,
+      sectionKey,
+    });
+  };
+
+  return (
+    <Modal transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={m.backdrop} onPress={onClose}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <Pressable style={m.sheet} onPress={e => e.stopPropagation()}>
+            <Text style={m.sheetTitle}>Nouvel article</Text>
+            <Text style={m.sheetSub}>{sectionKey}</Text>
+
+            <Text style={m.label}>Nom *</Text>
+            <TextInput
+              style={m.input}
+              value={name}
+              onChangeText={setName}
+              placeholder="ex: Couteau, Bâtons…"
+              placeholderTextColor={C.inkMuted}
+              autoFocus
+            />
+
+            <Text style={m.label}>Qui porte</Text>
+            <View style={m.whoRow}>
+              {(['papa', 'fille', 'shared'] as WhoType[]).map(w => {
+                const ws = WHO_STYLE[w];
+                const active = who === w;
+                return (
+                  <TouchableOpacity
+                    key={w}
+                    style={[m.whoBtn, active && { backgroundColor: ws.bg, borderColor: ws.bg }]}
+                    onPress={() => setWho(w)}
+                  >
+                    <Text style={[m.whoBtnText, active && { color: ws.tc }]}>{ws.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <View style={m.row}>
+              <View style={{ flex: 1 }}>
+                <Text style={m.label}>Poids (g) — optionnel</Text>
+                <TextInput
+                  style={m.input}
+                  value={weight}
+                  onChangeText={setWeight}
+                  placeholder="ex: 250"
+                  placeholderTextColor={C.inkMuted}
+                  keyboardType="numeric"
+                />
+              </View>
+              <View style={{ marginLeft: 12, marginTop: 22 }}>
+                <TouchableOpacity
+                  style={[m.vitalBtn, vital && m.vitalBtnActive]}
+                  onPress={() => setVital(v => !v)}
+                >
+                  <Text style={[m.vitalBtnText, vital && m.vitalBtnTextActive]}>⚡ Vital</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={m.actions}>
+              <TouchableOpacity style={m.cancelBtn} onPress={onClose}>
+                <Text style={m.cancelBtnText}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[m.saveBtn, !name.trim() && m.saveBtnDisabled]}
+                onPress={save}
+                disabled={!name.trim()}
+              >
+                <Text style={m.saveBtnText}>Ajouter</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </KeyboardAvoidingView>
+      </Pressable>
+    </Modal>
+  );
+}
+
+// ─── Main screen ─────────────────────────────────────────────────────────────
+
 export default function ChecklistScreen() {
-  const [person, setPerson]   = useState<PersonFilter>('all');
-  const [mode, setMode]       = useState<ModeFilter>('normal');
-  const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const [person, setPerson]           = useState<PersonFilter>('all');
+  const [mode, setMode]               = useState<ModeFilter>('normal');
+  const [checked, setChecked]         = useState<Record<string, boolean>>({});
+  const [customItems, setCustomItems] = useState<CustomItem[]>([]);
+  const [addSection, setAddSection]   = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       AsyncStorage.getItem(CHECKED_KEY).then(raw => setChecked(raw ? JSON.parse(raw) : {}));
+      AsyncStorage.getItem(CUSTOM_ITEMS_KEY).then(raw => setCustomItems(raw ? JSON.parse(raw) : []));
     }, [])
   );
 
@@ -39,6 +154,42 @@ export default function ChecklistScreen() {
       AsyncStorage.setItem(CHECKED_KEY, JSON.stringify(next));
       return next;
     });
+  }, []);
+
+  const handleAddItem = useCallback((item: CustomItem) => {
+    setCustomItems(prev => {
+      const next = [...prev, item];
+      AsyncStorage.setItem(CUSTOM_ITEMS_KEY, JSON.stringify(next));
+      return next;
+    });
+    setAddSection(null);
+  }, []);
+
+  const handleDeleteItem = useCallback((id: string, name: string) => {
+    Alert.alert(
+      'Supprimer cet article ?',
+      `"${name}" sera retiré de la liste.`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: () => {
+            setCustomItems(prev => {
+              const next = prev.filter(i => i.id !== id);
+              AsyncStorage.setItem(CUSTOM_ITEMS_KEY, JSON.stringify(next));
+              return next;
+            });
+            setChecked(prev => {
+              const next = { ...prev };
+              delete next[id];
+              AsyncStorage.setItem(CHECKED_KEY, JSON.stringify(next));
+              return next;
+            });
+          },
+        },
+      ]
+    );
   }, []);
 
   const handleReset = () => {
@@ -59,16 +210,33 @@ export default function ChecklistScreen() {
     );
   };
 
+  // Merge built-in sections with custom items
+  const mergedSections = useMemo(() => {
+    return CHECKLIST_DATA.map(sec => ({
+      ...sec,
+      items: [
+        ...sec.items,
+        ...customItems.filter(ci => ci.sectionKey === sec.section),
+      ] as (CheckItem & { _custom?: boolean })[],
+    })).map(sec => ({
+      ...sec,
+      items: sec.items.map(item => ({
+        ...item,
+        _custom: customItems.some(ci => ci.id === item.id),
+      })),
+    }));
+  }, [customItems]);
+
   // Filter items
-  const filteredSections = CHECKLIST_DATA.map(sec => ({
+  const filteredSections = mergedSections.map(sec => ({
     ...sec,
     items: sec.items.filter(item => {
       if (person !== 'all' && item.who !== person) return false;
-      if (mode === 'vital'   && !item.vital)      return false;
+      if (mode === 'vital'   && !item.vital)        return false;
       if (mode === 'packing' && !!checked[item.id]) return false;
       return true;
     }),
-  })).filter(sec => sec.items.length > 0);
+  })).filter(sec => sec.items.length > 0 || mode === 'normal');
 
   // Stats
   let total = 0, done = 0, totalW = 0, doneW = 0;
@@ -82,14 +250,13 @@ export default function ChecklistScreen() {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   const allDone = total > 0 && done === total;
 
-  // Pack weight across ALL items (independent of active filter)
   const weightByPerson = useMemo(() => {
     const w = { papa: 0, fille: 0, shared: 0 };
-    CHECKLIST_DATA.forEach(sec => sec.items.forEach(item => {
+    mergedSections.forEach(sec => sec.items.forEach(item => {
       if (checked[item.id] && item.weight) w[item.who] += item.weight;
     }));
     return w;
-  }, [checked]);
+  }, [checked, mergedSections]);
   const totalCheckedW = weightByPerson.papa + weightByPerson.fille + weightByPerson.shared;
   const wColor = totalCheckedW > 10000 ? C.accent : totalCheckedW > 7000 ? C.accent2 : C.green;
   const wLabel = totalCheckedW > 10000 ? 'Lourd' : totalCheckedW > 7000 ? 'Modéré' : 'Léger';
@@ -202,7 +369,7 @@ export default function ChecklistScreen() {
         </View>
 
         {/* Empty state */}
-        {filteredSections.length === 0 && (
+        {filteredSections.every(s => s.items.length === 0) && (
           <View style={s.emptyState}>
             <Text style={s.emptyIcon}>
               {mode === 'packing' ? '✓' : '☐'}
@@ -216,48 +383,90 @@ export default function ChecklistScreen() {
         )}
 
         {/* Sections */}
-        {filteredSections.map(sec => (
-          <View key={sec.section} style={s.section}>
-            <View style={s.sectionHeader}>
-              <Text style={s.sectionHeaderText}>{sec.section}</Text>
-              <View style={s.sectionLine} />
-            </View>
-            {sec.items.map((item, idx) => {
-              const isDone = !!checked[item.id];
-              const who = WHO_STYLE[item.who];
-              return (
+        {CHECKLIST_DATA.map(builtInSec => {
+          const merged = mergedSections.find(s => s.section === builtInSec.section)!;
+          const filtered = merged.items.filter(item => {
+            if (person !== 'all' && item.who !== person) return false;
+            if (mode === 'vital'   && !item.vital)        return false;
+            if (mode === 'packing' && !!checked[item.id]) return false;
+            return true;
+          });
+          if (filtered.length === 0 && mode !== 'normal') return null;
+
+          return (
+            <View key={builtInSec.section} style={s.section}>
+              <View style={s.sectionHeader}>
+                <Text style={s.sectionHeaderText}>{builtInSec.section}</Text>
+                <View style={s.sectionLine} />
                 <TouchableOpacity
-                  key={item.id}
-                  style={[
-                    s.item,
-                    isDone && s.itemDone,
-                    idx === sec.items.length - 1 && { borderBottomWidth: 0 },
-                  ]}
-                  onPress={() => toggle(item.id)}
-                  activeOpacity={0.7}
+                  style={s.addBtn}
+                  onPress={() => setAddSection(builtInSec.section)}
                 >
-                  <View style={[s.checkbox, isDone && s.checkboxDone]}>
-                    {isDone && <Text style={s.checkmark}>✓</Text>}
-                  </View>
-                  <View style={s.itemBody}>
-                    <View style={s.itemNameRow}>
-                      <Text style={s.itemName}>{item.name}</Text>
-                      <View style={[s.whoBadge, { backgroundColor: who.bg }]}>
-                        <Text style={[s.whoText, { color: who.tc }]}>{who.label}</Text>
-                      </View>
-                      {item.vital && <View style={s.vitalDot} />}
-                    </View>
-                    <View style={s.itemMetaRow}>
-                      {item.note ? <Text style={s.itemNote}>{item.note}</Text> : <Text />}
-                      {item.weight ? <Text style={s.itemWeight}>{formatWeight(item.weight)}</Text> : null}
-                    </View>
-                  </View>
+                  <Text style={s.addBtnText}>+ Ajouter</Text>
                 </TouchableOpacity>
-              );
-            })}
-          </View>
-        ))}
+              </View>
+
+              {filtered.length === 0 ? (
+                <Text style={s.emptySectionText}>Aucun article visible</Text>
+              ) : (
+                filtered.map((item, idx) => {
+                  const isDone = !!checked[item.id];
+                  const who = WHO_STYLE[item.who];
+                  const isCustom = !!(item as any)._custom;
+                  return (
+                    <View key={item.id} style={[
+                      s.item,
+                      isDone && s.itemDone,
+                      idx === filtered.length - 1 && { borderBottomWidth: 0 },
+                    ]}>
+                      <TouchableOpacity
+                        style={s.itemTouchable}
+                        onPress={() => toggle(item.id)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[s.checkbox, isDone && s.checkboxDone]}>
+                          {isDone && <Text style={s.checkmark}>✓</Text>}
+                        </View>
+                        <View style={s.itemBody}>
+                          <View style={s.itemNameRow}>
+                            <Text style={s.itemName}>{item.name}</Text>
+                            <View style={[s.whoBadge, { backgroundColor: who.bg }]}>
+                              <Text style={[s.whoText, { color: who.tc }]}>{who.label}</Text>
+                            </View>
+                            {item.vital && <View style={s.vitalDot} />}
+                            {isCustom && <View style={s.customDot} />}
+                          </View>
+                          <View style={s.itemMetaRow}>
+                            {item.note ? <Text style={s.itemNote}>{item.note}</Text> : <Text />}
+                            {item.weight ? <Text style={s.itemWeight}>{formatWeight(item.weight)}</Text> : null}
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                      {isCustom && (
+                        <TouchableOpacity
+                          style={s.deleteBtn}
+                          onPress={() => handleDeleteItem(item.id, item.name)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Text style={s.deleteBtnText}>×</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  );
+                })
+              )}
+            </View>
+          );
+        })}
       </ScrollView>
+
+      {addSection && (
+        <AddItemModal
+          sectionKey={addSection}
+          onSave={handleAddItem}
+          onClose={() => setAddSection(null)}
+        />
+      )}
     </View>
   );
 }
@@ -303,13 +512,17 @@ const s = StyleSheet.create({
   emptyState: { alignItems: 'center', paddingVertical: 40 },
   emptyIcon: { fontSize: 32, marginBottom: 8 },
   emptyText: { fontFamily: FF.mono, fontSize: 13, color: C.inkMuted },
+  emptySectionText: { fontFamily: FF.mono, fontSize: 11, color: C.inkMuted, paddingVertical: 8, paddingLeft: 4 },
 
   section: { marginBottom: 14 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
   sectionHeaderText: { fontFamily: FF.mono, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase', color: C.inkMuted },
   sectionLine: { flex: 1, height: 1, backgroundColor: C.line },
+  addBtn: { borderRadius: 6, borderWidth: 1, borderColor: C.line, paddingHorizontal: 7, paddingVertical: 3, backgroundColor: C.paper3 },
+  addBtnText: { fontFamily: FF.mono, fontSize: 9, color: C.blue, letterSpacing: 0.3 },
 
-  item: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: C.line2 },
+  item: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: C.line2 },
+  itemTouchable: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 13 },
   itemDone: { opacity: 0.45 },
   checkbox: { width: 22, height: 22, borderRadius: 5, borderWidth: 1.5, borderColor: C.line, alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 },
   checkboxDone: { backgroundColor: C.green, borderColor: C.green },
@@ -321,8 +534,68 @@ const s = StyleSheet.create({
   whoBadge: { borderRadius: 10, paddingHorizontal: 5, paddingVertical: 1 },
   whoText: { fontFamily: FF.mono, fontSize: 9, letterSpacing: 0.3 },
   vitalDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: C.accent },
+  customDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: C.blue },
 
   itemMetaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 },
   itemNote: { fontFamily: FF.mono, fontSize: 10, color: C.inkMuted, flex: 1 },
   itemWeight: { fontFamily: FF.mono, fontSize: 9, color: C.blue, marginLeft: 8 },
+
+  deleteBtn: { paddingHorizontal: 12, paddingVertical: 8 },
+  deleteBtnText: { fontSize: 18, color: C.accent, fontWeight: '400', lineHeight: 20 },
+});
+
+// ─── Modal styles ─────────────────────────────────────────────────────────────
+
+const m = StyleSheet.create({
+  backdrop: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: C.paper,
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    padding: 24, paddingBottom: 40,
+  },
+  sheetTitle: { fontFamily: FF.display, fontSize: 17, fontWeight: '600', color: C.ink, marginBottom: 2 },
+  sheetSub: { fontFamily: FF.mono, fontSize: 10, color: C.inkMuted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 20 },
+
+  label: { fontFamily: FF.mono, fontSize: 10, color: C.inkMuted, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6, marginTop: 14 },
+  input: {
+    borderWidth: 1, borderColor: C.line, borderRadius: 8,
+    paddingHorizontal: 12, paddingVertical: 10,
+    fontFamily: FF.mono, fontSize: 13, color: C.ink,
+    backgroundColor: C.paper2,
+  },
+
+  whoRow: { flexDirection: 'row', gap: 8 },
+  whoBtn: {
+    flex: 1, paddingVertical: 9, borderRadius: 8,
+    borderWidth: 1.5, borderColor: C.line,
+    backgroundColor: C.paper3, alignItems: 'center',
+  },
+  whoBtnText: { fontFamily: FF.mono, fontSize: 11, color: C.ink, fontWeight: '500' },
+
+  row: { flexDirection: 'row', alignItems: 'flex-end' },
+  vitalBtn: {
+    borderWidth: 1.5, borderColor: C.line,
+    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10,
+    backgroundColor: C.paper3,
+  },
+  vitalBtnActive: { backgroundColor: C.accent, borderColor: C.accent },
+  vitalBtnText: { fontFamily: FF.mono, fontSize: 11, color: C.ink },
+  vitalBtnTextActive: { color: '#fff' },
+
+  actions: { flexDirection: 'row', gap: 10, marginTop: 24 },
+  cancelBtn: {
+    flex: 1, paddingVertical: 13, borderRadius: 10,
+    borderWidth: 1, borderColor: C.line,
+    backgroundColor: C.paper3, alignItems: 'center',
+  },
+  cancelBtnText: { fontFamily: FF.mono, fontSize: 12, color: C.inkMuted },
+  saveBtn: {
+    flex: 2, paddingVertical: 13, borderRadius: 10,
+    backgroundColor: C.ink, alignItems: 'center',
+  },
+  saveBtnDisabled: { opacity: 0.4 },
+  saveBtnText: { fontFamily: FF.mono, fontSize: 12, color: C.paper, fontWeight: '600' },
 });
