@@ -349,21 +349,15 @@ export default function MapScreen() {
         />
         <Polyline positions={traceCoords} color={COLORS.trace} weight={3} />
 
-        {/* Toutes les traces de trek — pâles, sauf le trek actif en violet vif */}
-        {Object.entries(TREK_GPX).map(([trekId, pts]) => {
-          const isActive = trekId === activeTrekId;
-          return (
-            <Polyline
-              key={`trek-${trekId}`}
-              positions={pts}
-              pathOptions={{
-                color: COLORS.gpx,
-                weight: isActive ? 4 : 2,
-                opacity: isActive ? 1 : 0.3,
-              }}
-            />
-          );
-        })}
+        {/* Traces de trek — même API que GR10 */}
+        {(Object.keys(TREK_GPX) as string[]).map((trekId) => (
+          <Polyline
+            key={`trek-${trekId}`}
+            positions={TREK_GPX[trekId] as [number, number][]}
+            color={COLORS.gpx}
+            weight={trekId === activeTrekId ? 4 : 2}
+          />
+        ))}
 
         {activeTrekId && TREK_GPX[activeTrekId] && (
           <FitBoundsToGpx points={TREK_GPX[activeTrekId]} />
