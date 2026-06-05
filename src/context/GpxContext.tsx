@@ -5,14 +5,13 @@ import { Itineraire } from '../utils/itineraireParser';
 
 const KEY_GPX      = 'gpx_track_v2';
 const KEY_IT       = 'itineraire_v1';
-const KEY_CODE     = 'sync_code_v1';
 const KEY_NOTES    = 'trek_notes_v1';
 const KEY_ACTIVE   = 'active_trek_v1';
 const KEY_DATES    = 'trek_dates_v1';
 const KEY_STAGES   = 'stages_done_v1';
 const KEY_JOURNAL  = 'journal_v1';
-const KEY_CHECKED  = 'rando_checked_v1';
-const KEY_CUSTOM   = 'rando_custom_items_v1';
+const KEY_CHECKED  = 'rando_checked_v3';
+const KEY_CUSTOM   = 'rando_custom_items_v3';
 
 // ─── Supabase sync ────────────────────────────────────────────────────────────
 // create table rando_sync (
@@ -40,9 +39,10 @@ const SB_H = {
   'Content-Type': 'application/json',
 };
 
-type Notes   = Record<string, string>;
-type Dates   = Record<string, string>;
-type Checked = Record<string, boolean>;
+type Notes      = Record<string, string>;
+type Dates      = Record<string, string>;
+type AllChecked = Record<string, Record<string, boolean>>;
+type AllCustom  = Record<string, CustomItem[]>;
 export type CustomItem = { id: string; name: string; who: import('../data/checklist').WhoType; vital: boolean; weight?: number; note?: string; sectionKey: string };
 export type SyncStatus = 'idle' | 'syncing' | 'ok' | 'error';
 
@@ -63,8 +63,8 @@ interface SbPayload {
   trek_notes: Notes;
   active_trek: string | null;
   trek_dates: Dates;
-  checklist_checked: Checked;
-  checklist_custom: CustomItem[];
+  checklist_checked: AllChecked;
+  checklist_custom: AllCustom;
 }
 
 async function sbPush(code: string, payload: SbPayload): Promise<boolean> {
@@ -124,8 +124,6 @@ interface GpxContextValue {
   itineraire: Itineraire | null;
   setItineraire: (it: Itineraire | null) => void;
   traceBbox: TraceBbox | null;
-  syncCode: string;
-  joinSyncCode: (code: string) => Promise<void>;
   trekNotes: Notes;
   setTrekNote: (trekId: string, text: string) => void;
   activeTrekId: string | null;
@@ -137,11 +135,11 @@ interface GpxContextValue {
   journalEntries: Record<string, JournalEntry>;
   setJournalEntry: (entry: JournalEntry) => void;
   deleteJournalEntry: (id: string) => void;
-  // Checklist (synced)
-  checklistChecked: Checked;
+  // Checklist — scoped to active trek
+  activeChecked: Record<string, boolean>;
   toggleChecked: (id: string) => void;
   resetChecked: () => void;
-  customItems: CustomItem[];
+  activeCustomItems: CustomItem[];
   addCustomItem: (item: CustomItem) => void;
   deleteCustomItem: (id: string) => void;
   syncStatus: SyncStatus;
@@ -152,14 +150,13 @@ const GpxContext = createContext<GpxContextValue>({
   gpxTrack: null, setGpxTrack: () => {},
   itineraire: null, setItineraire: () => {},
   traceBbox: null,
-  syncCode: '', joinSyncCode: async () => {},
   trekNotes: {}, setTrekNote: () => {},
   activeTrekId: null, setActiveTrekId: () => {},
   trekDates: {}, setTrekDate: () => {},
   stagesDone: {}, setStagesDone: () => {},
   journalEntries: {}, setJournalEntry: () => {}, deleteJournalEntry: () => {},
-  checklistChecked: {}, toggleChecked: () => {}, resetChecked: () => {},
-  customItems: [], addCustomItem: () => {}, deleteCustomItem: () => {},
+  activeChecked: {}, toggleChecked: () => {}, resetChecked: () => {},
+  activeCustomItems: [], addCustomItem: () => {}, deleteCustomItem: () => {},
   syncStatus: 'idle',
   isInitializing: true,
 });
@@ -172,25 +169,24 @@ export function GpxProvider({ children }: { children: React.ReactNode }) {
   const [trekDates, setTrekDatesState]             = useState<Dates>({});
   const [stagesDone, setStagesDoneState]           = useState<Record<string, boolean>>({});
   const [journalEntries, setJournalEntriesState]   = useState<Record<string, JournalEntry>>({});
-  const [checklistChecked, setChecklistChecked]    = useState<Checked>({});
-  const [customItems, setCustomItemsState]         = useState<CustomItem[]>([]);
-  const [syncCode, setSyncCode]                    = useState('');
+  const [allChecked, setAllChecked]                = useState<AllChecked>({});
+  const [allCustom, setAllCustom]                  = useState<AllCustom>({});
   const [syncStatus, setSyncStatus]                = useState<SyncStatus>('idle');
   const [isInitializing, setIsInitializing]        = useState(true);
 
-  const syncCodeRef = useRef('');
   const stateRef = useRef({
     gpx: null as GpxTrack | null,
     it: null as Itineraire | null,
     notes: {} as Notes,
     active: null as string | null,
     dates: {} as Dates,
-    checked: {} as Checked,
-    custom: [] as CustomItem[],
+    allChecked: {} as AllChecked,
+    allCustom: {} as AllCustom,
   });
 
+  const trekKey = useCallback(() => stateRef.current.active ?? '__global__', []);
+
   const push = useCallback(async (partial?: Partial<SbPayload>) => {
-    if (!syncCodeRef.current) return;
     setSyncStatus('syncing');
     const payload: SbPayload = {
       gpx_track:          stateRef.current.gpx,
@@ -198,48 +194,43 @@ export function GpxProvider({ children }: { children: React.ReactNode }) {
       trek_notes:         stateRef.current.notes,
       active_trek:        stateRef.current.active,
       trek_dates:         stateRef.current.dates,
-      checklist_checked:  stateRef.current.checked,
-      checklist_custom:   stateRef.current.custom,
+      checklist_checked:  stateRef.current.allChecked,
+      checklist_custom:   stateRef.current.allCustom,
       ...partial,
     };
-    const ok = await sbPush(syncCodeRef.current, payload);
+    const ok = await sbPush(DEFAULT_CODE, payload);
     setSyncStatus(ok ? 'ok' : 'error');
   }, []);
 
   useEffect(() => {
-    (AsyncStorage as any).getMany([KEY_GPX, KEY_IT, KEY_CODE, KEY_NOTES, KEY_ACTIVE, KEY_DATES, KEY_STAGES, KEY_JOURNAL, KEY_CHECKED, KEY_CUSTOM]).then(
+    (AsyncStorage as any).getMany([KEY_GPX, KEY_IT, KEY_NOTES, KEY_ACTIVE, KEY_DATES, KEY_STAGES, KEY_JOURNAL, KEY_CHECKED, KEY_CUSTOM]).then(
       async (values: Record<string, string | null>) => {
         let localGpx: GpxTrack | null = null;
         let localIt: Itineraire | null = null;
         let localNotes: Notes = {};
         let localActive: string | null = null;
         let localDates: Dates = {};
-        let localChecked: Checked = {};
-        let localCustom: CustomItem[] = [];
-        try { if (values[KEY_GPX])     localGpx     = JSON.parse(values[KEY_GPX]!);     } catch {}
-        try { if (values[KEY_IT])      localIt      = JSON.parse(values[KEY_IT]!);      } catch {}
-        try { if (values[KEY_NOTES])   localNotes   = JSON.parse(values[KEY_NOTES]!);   } catch {}
-        try { if (values[KEY_ACTIVE])  localActive  = values[KEY_ACTIVE]!;              } catch {}
-        try { if (values[KEY_DATES])   localDates   = JSON.parse(values[KEY_DATES]!);   } catch {}
+        let localAllChecked: AllChecked = {};
+        let localAllCustom: AllCustom = {};
+        try { if (values[KEY_GPX])     localGpx          = JSON.parse(values[KEY_GPX]!);     } catch {}
+        try { if (values[KEY_IT])      localIt           = JSON.parse(values[KEY_IT]!);      } catch {}
+        try { if (values[KEY_NOTES])   localNotes        = JSON.parse(values[KEY_NOTES]!);   } catch {}
+        try { if (values[KEY_ACTIVE])  localActive       = values[KEY_ACTIVE]!;              } catch {}
+        try { if (values[KEY_DATES])   localDates        = JSON.parse(values[KEY_DATES]!);   } catch {}
         try { if (values[KEY_STAGES])  setStagesDoneState(JSON.parse(values[KEY_STAGES]!));  } catch {}
         try { if (values[KEY_JOURNAL]) setJournalEntriesState(JSON.parse(values[KEY_JOURNAL]!)); } catch {}
-        try { if (values[KEY_CHECKED]) localChecked = JSON.parse(values[KEY_CHECKED]!); } catch {}
-        try { if (values[KEY_CUSTOM])  localCustom  = JSON.parse(values[KEY_CUSTOM]!);  } catch {}
+        try { if (values[KEY_CHECKED]) localAllChecked   = JSON.parse(values[KEY_CHECKED]!); } catch {}
+        try { if (values[KEY_CUSTOM])  localAllCustom    = JSON.parse(values[KEY_CUSTOM]!);  } catch {}
 
-        if (localGpx)    { stateRef.current.gpx     = localGpx;    setGpxTrackState(localGpx); }
-        if (localIt)     { stateRef.current.it      = localIt;     setItineraireState(localIt); }
-        if (localActive) { stateRef.current.active  = localActive; setActiveTrekIdState(localActive); }
-        if (Object.keys(localDates).length > 0)   { stateRef.current.dates   = localDates;   setTrekDatesState(localDates); }
-        if (Object.keys(localNotes).length > 0)   { stateRef.current.notes   = localNotes;   setTrekNotesState(localNotes); }
-        if (Object.keys(localChecked).length > 0) { stateRef.current.checked = localChecked; setChecklistChecked(localChecked); }
-        if (localCustom.length > 0)               { stateRef.current.custom  = localCustom;  setCustomItemsState(localCustom); }
+        if (localGpx)    { stateRef.current.gpx        = localGpx;          setGpxTrackState(localGpx); }
+        if (localIt)     { stateRef.current.it         = localIt;           setItineraireState(localIt); }
+        if (localActive) { stateRef.current.active     = localActive;       setActiveTrekIdState(localActive); }
+        if (Object.keys(localDates).length > 0)      { stateRef.current.dates      = localDates;      setTrekDatesState(localDates); }
+        if (Object.keys(localNotes).length > 0)      { stateRef.current.notes      = localNotes;      setTrekNotesState(localNotes); }
+        if (Object.keys(localAllChecked).length > 0) { stateRef.current.allChecked = localAllChecked; setAllChecked(localAllChecked); }
+        if (Object.keys(localAllCustom).length > 0)  { stateRef.current.allCustom  = localAllCustom;  setAllCustom(localAllCustom); }
 
-        const code = values[KEY_CODE] || DEFAULT_CODE;
-        if (!values[KEY_CODE]) await AsyncStorage.setItem(KEY_CODE, code);
-        syncCodeRef.current = code;
-        setSyncCode(code);
-
-        const remote = await sbPull(code);
+        const remote = await sbPull(DEFAULT_CODE);
         if (remote) {
           if (remote.gpx_track)  { stateRef.current.gpx    = remote.gpx_track;  setGpxTrackState(remote.gpx_track);   AsyncStorage.setItem(KEY_GPX, JSON.stringify(remote.gpx_track)); }
           if (remote.itineraire) { stateRef.current.it     = remote.itineraire; setItineraireState(remote.itineraire); AsyncStorage.setItem(KEY_IT, JSON.stringify(remote.itineraire)); }
@@ -248,10 +239,10 @@ export function GpxProvider({ children }: { children: React.ReactNode }) {
           if (Object.keys(rNotes).length > 0) { stateRef.current.notes = rNotes; setTrekNotesState(rNotes); AsyncStorage.setItem(KEY_NOTES, JSON.stringify(rNotes)); }
           const rDates = remote.trek_dates ?? {};
           if (Object.keys(rDates).length > 0) { stateRef.current.dates = rDates; setTrekDatesState(rDates); AsyncStorage.setItem(KEY_DATES, JSON.stringify(rDates)); }
-          const rChecked = (remote.checklist_checked ?? {}) as Checked;
-          if (Object.keys(rChecked).length > 0) { stateRef.current.checked = rChecked; setChecklistChecked(rChecked); AsyncStorage.setItem(KEY_CHECKED, JSON.stringify(rChecked)); }
-          const rCustom = (remote.checklist_custom ?? []) as CustomItem[];
-          if (rCustom.length > 0) { stateRef.current.custom = rCustom; setCustomItemsState(rCustom); AsyncStorage.setItem(KEY_CUSTOM, JSON.stringify(rCustom)); }
+          const rAllChecked = (remote.checklist_checked ?? {}) as AllChecked;
+          if (Object.keys(rAllChecked).length > 0) { stateRef.current.allChecked = rAllChecked; setAllChecked(rAllChecked); AsyncStorage.setItem(KEY_CHECKED, JSON.stringify(rAllChecked)); }
+          const rAllCustom = (remote.checklist_custom ?? {}) as AllCustom;
+          if (Object.keys(rAllCustom).length > 0) { stateRef.current.allCustom = rAllCustom; setAllCustom(rAllCustom); AsyncStorage.setItem(KEY_CUSTOM, JSON.stringify(rAllCustom)); }
 
           const needsPush =
             (localGpx && !remote.gpx_track) ||
@@ -259,10 +250,10 @@ export function GpxProvider({ children }: { children: React.ReactNode }) {
             (localActive && !remote.active_trek) ||
             (Object.keys(localNotes).length > 0 && Object.keys(rNotes).length === 0) ||
             (Object.keys(localDates).length > 0 && Object.keys(rDates).length === 0) ||
-            (Object.keys(localChecked).length > 0 && Object.keys(rChecked).length === 0) ||
-            (localCustom.length > 0 && rCustom.length === 0);
+            (Object.keys(localAllChecked).length > 0 && Object.keys(rAllChecked).length === 0) ||
+            (Object.keys(localAllCustom).length > 0 && Object.keys(rAllCustom).length === 0);
           if (needsPush) push();
-        } else if (localGpx || localIt || localActive || Object.keys(localNotes).length > 0 || Object.keys(localDates).length > 0 || Object.keys(localChecked).length > 0 || localCustom.length > 0) {
+        } else if (localGpx || localIt || localActive || Object.keys(localNotes).length > 0 || Object.keys(localDates).length > 0 || Object.keys(localAllChecked).length > 0 || Object.keys(localAllCustom).length > 0) {
           push();
         }
         setIsInitializing(false);
@@ -335,72 +326,63 @@ export function GpxProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // ── Checklist (synced) ──────────────────────────────────────────────────────
+  // ── Checklist (synced, scoped per trek) ────────────────────────────────────
 
   const toggleChecked = useCallback((id: string) => {
-    setChecklistChecked(prev => {
-      const next = { ...prev, [id]: !prev[id] };
-      stateRef.current.checked = next;
+    const k = trekKey();
+    setAllChecked(prev => {
+      const trekChecked = { ...(prev[k] ?? {}), [id]: !(prev[k] ?? {})[id] };
+      const next: AllChecked = { ...prev, [k]: trekChecked };
+      stateRef.current.allChecked = next;
       AsyncStorage.setItem(KEY_CHECKED, JSON.stringify(next));
       push({ checklist_checked: next });
       return next;
     });
-  }, [push]);
+  }, [push, trekKey]);
 
   const resetChecked = useCallback(() => {
-    stateRef.current.checked = {};
-    setChecklistChecked({});
-    AsyncStorage.removeItem(KEY_CHECKED);
-    push({ checklist_checked: {} });
-  }, [push]);
+    const k = trekKey();
+    setAllChecked(prev => {
+      const next: AllChecked = { ...prev, [k]: {} };
+      stateRef.current.allChecked = next;
+      AsyncStorage.setItem(KEY_CHECKED, JSON.stringify(next));
+      push({ checklist_checked: next });
+      return next;
+    });
+  }, [push, trekKey]);
 
   const addCustomItem = useCallback((item: CustomItem) => {
-    setCustomItemsState(prev => {
-      const next = [...prev, item];
-      stateRef.current.custom = next;
+    const k = trekKey();
+    setAllCustom(prev => {
+      const trekCustom = [...(prev[k] ?? []), item];
+      const next: AllCustom = { ...prev, [k]: trekCustom };
+      stateRef.current.allCustom = next;
       AsyncStorage.setItem(KEY_CUSTOM, JSON.stringify(next));
       push({ checklist_custom: next });
       return next;
     });
-  }, [push]);
+  }, [push, trekKey]);
 
   const deleteCustomItem = useCallback((id: string) => {
-    setCustomItemsState(prev => {
-      const next = prev.filter(i => i.id !== id);
-      stateRef.current.custom = next;
+    const k = trekKey();
+    setAllCustom(prev => {
+      const trekCustom = (prev[k] ?? []).filter(i => i.id !== id);
+      const next: AllCustom = { ...prev, [k]: trekCustom };
+      stateRef.current.allCustom = next;
       AsyncStorage.setItem(KEY_CUSTOM, JSON.stringify(next));
       push({ checklist_custom: next });
       // Also remove from checked
-      const newChecked = { ...stateRef.current.checked };
-      delete newChecked[id];
-      stateRef.current.checked = newChecked;
-      setChecklistChecked(newChecked);
-      AsyncStorage.setItem(KEY_CHECKED, JSON.stringify(newChecked));
+      setAllChecked(prevC => {
+        const trekChecked = { ...(prevC[k] ?? {}) };
+        delete trekChecked[id];
+        const nextC: AllChecked = { ...prevC, [k]: trekChecked };
+        stateRef.current.allChecked = nextC;
+        AsyncStorage.setItem(KEY_CHECKED, JSON.stringify(nextC));
+        return nextC;
+      });
       return next;
     });
-  }, [push]);
-
-  const joinSyncCode = useCallback(async (code: string) => {
-    const normalized = code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-    syncCodeRef.current = normalized;
-    setSyncCode(normalized);
-    await AsyncStorage.setItem(KEY_CODE, normalized);
-    const remote = await sbPull(normalized);
-    if (remote) {
-      if (remote.gpx_track)   { stateRef.current.gpx    = remote.gpx_track;  setGpxTrackState(remote.gpx_track);   await AsyncStorage.setItem(KEY_GPX, JSON.stringify(remote.gpx_track)); }
-      if (remote.itineraire)  { stateRef.current.it     = remote.itineraire; setItineraireState(remote.itineraire); await AsyncStorage.setItem(KEY_IT, JSON.stringify(remote.itineraire)); }
-      if (remote.active_trek) { stateRef.current.active = remote.active_trek; setActiveTrekIdState(remote.active_trek); await AsyncStorage.setItem(KEY_ACTIVE, remote.active_trek); }
-      const rNotes = remote.trek_notes ?? {};
-      if (Object.keys(rNotes).length > 0) { stateRef.current.notes = rNotes; setTrekNotesState(rNotes); await AsyncStorage.setItem(KEY_NOTES, JSON.stringify(rNotes)); }
-      const rDates = remote.trek_dates ?? {};
-      if (Object.keys(rDates).length > 0) { stateRef.current.dates = rDates; setTrekDatesState(rDates); await AsyncStorage.setItem(KEY_DATES, JSON.stringify(rDates)); }
-      const rChecked = (remote.checklist_checked ?? {}) as Checked;
-      if (Object.keys(rChecked).length > 0) { stateRef.current.checked = rChecked; setChecklistChecked(rChecked); await AsyncStorage.setItem(KEY_CHECKED, JSON.stringify(rChecked)); }
-      const rCustom = (remote.checklist_custom ?? []) as CustomItem[];
-      if (rCustom.length > 0) { stateRef.current.custom = rCustom; setCustomItemsState(rCustom); await AsyncStorage.setItem(KEY_CUSTOM, JSON.stringify(rCustom)); }
-      setSyncStatus('ok');
-    }
-  }, []);
+  }, [push, trekKey]);
 
   const traceBbox = useMemo<TraceBbox | null>(() => {
     const pts = gpxTrack?.points;
@@ -413,17 +395,20 @@ export function GpxProvider({ children }: { children: React.ReactNode }) {
     return { minLat, maxLat, minLng, maxLng };
   }, [gpxTrack]);
 
+  const k = activeTrekId ?? '__global__';
+  const activeChecked = allChecked[k] ?? {};
+  const activeCustomItems = allCustom[k] ?? [];
+
   return (
     <GpxContext.Provider value={{
       gpxTrack, setGpxTrack, itineraire, setItineraire, traceBbox,
-      syncCode, joinSyncCode,
       trekNotes, setTrekNote,
       activeTrekId, setActiveTrekId,
       trekDates, setTrekDate,
       stagesDone, setStagesDone,
       journalEntries, setJournalEntry, deleteJournalEntry,
-      checklistChecked, toggleChecked, resetChecked,
-      customItems, addCustomItem, deleteCustomItem,
+      activeChecked, toggleChecked, resetChecked,
+      activeCustomItems, addCustomItem, deleteCustomItem,
       syncStatus, isInitializing,
     }}>
       {children}

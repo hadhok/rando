@@ -269,8 +269,8 @@ function CatalogueModal({ existingIds, onAdd, onClose }: CatalogueModalProps) {
 
 export default function ChecklistScreen() {
   const {
-    checklistChecked, toggleChecked, resetChecked,
-    customItems, addCustomItem, deleteCustomItem,
+    activeChecked: checklistChecked, toggleChecked, resetChecked,
+    activeCustomItems: customItems, addCustomItem, deleteCustomItem,
   } = useGpx();
 
   const [person, setPerson]         = useState<PersonFilter>('all');

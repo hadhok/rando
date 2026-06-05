@@ -14,7 +14,6 @@ import {
 } from '../utils/tileCache';
 import { parseGpx } from '../utils/gpxParser';
 import { useGpx } from '../context/GpxContext';
-import SyncModal from '../components/SyncModal';
 
 function useLeafletCSS() {
   useEffect(() => {
@@ -273,8 +272,7 @@ export default function MapScreen() {
   const [showBivouacs, setShowBivouacs] = useState(true);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [showDlPanel, setShowDlPanel] = useState(false);
-  const [showSync, setShowSync] = useState(false);
-  const { gpxTrack, setGpxTrack, syncCode, syncStatus } = useGpx();
+  const { gpxTrack, setGpxTrack, syncStatus } = useGpx();
   const [gpxError, setGpxError] = useState('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -464,12 +462,7 @@ export default function MapScreen() {
             </TouchableOpacity>
           </View>
         )}
-        <TouchableOpacity style={styles.btn} onPress={() => setShowSync(true)}>
-          <Text style={styles.btnText}>🔗 {syncCode || '…'}</Text>
-        </TouchableOpacity>
       </View>
-
-      <SyncModal visible={showSync} onClose={() => setShowSync(false)} />
 
       {/* Panneau de téléchargement */}
       {showDlPanel && <DownloadPanel onClose={() => setShowDlPanel(false)} />}

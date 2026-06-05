@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { ETAPES } from '../data/etapes';
 import { useGpx } from '../context/GpxContext';
-import SyncModal from '../components/SyncModal';
 
 // ─── WMO helpers ──────────────────────────────────────────────────────────────
 
@@ -167,12 +166,11 @@ function callPhone(numero: string) {
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function InfoScreen() {
-  const { syncCode } = useGpx();
+  useGpx();
   const [locIdx, setLocIdx] = useState(0);
   const [forecasts, setForecasts] = useState<Record<number, DayForecast[]>>({});
   const [loading, setLoading] = useState(false);
   const [meteoError, setMeteoError] = useState('');
-  const [syncVisible, setSyncVisible] = useState(false);
   const [copyStatus, setCopyStatus] = useState('');
 
   const loc = LOCATIONS[locIdx];
@@ -195,15 +193,6 @@ export default function InfoScreen() {
       .finally(() => setLoading(false));
   }, [locIdx]);
 
-  const handleCopyCode = () => {
-    if (Platform.OS === 'web' && navigator.clipboard) {
-      navigator.clipboard.writeText(syncCode)
-        .then(() => { setCopyStatus('✅ Copié !'); setTimeout(() => setCopyStatus(''), 2000); })
-        .catch(() => { setCopyStatus(syncCode); setTimeout(() => setCopyStatus(''), 3000); });
-    } else {
-      Alert.alert('Code de synchronisation', syncCode);
-    }
-  };
 
   return (
     <SafeAreaView style={st.safe}>
@@ -333,26 +322,6 @@ export default function InfoScreen() {
           </View>
         ))}
 
-        {/* ── SYNCHRONISATION ───────────────────────────────────────────────── */}
-        <SectionHeader title="🔗 SYNCHRONISATION" />
-
-        <View style={st.syncCard}>
-          <Text style={st.syncLabel}>Votre code appareil</Text>
-          <View style={st.syncCodeRow}>
-            <Text style={st.syncCode}>{syncCode || '…'}</Text>
-            <TouchableOpacity style={st.copyBtn} onPress={handleCopyCode}>
-              <Text style={st.copyBtnTxt}>📋 Copier</Text>
-            </TouchableOpacity>
-          </View>
-          {copyStatus ? <Text style={st.copyStatus}>{copyStatus}</Text> : null}
-          <Text style={st.syncHint}>
-            Partagez ce code avec un autre appareil pour synchroniser votre trace GPX et votre itinéraire importé.
-          </Text>
-          <TouchableOpacity style={st.joinBtn} onPress={() => setSyncVisible(true)}>
-            <Text style={st.joinBtnTxt}>Rejoindre un code…</Text>
-          </TouchableOpacity>
-        </View>
-
         {/* ── À PROPOS ──────────────────────────────────────────────────────── */}
         <SectionHeader title="ℹ️ À PROPOS" />
 
@@ -371,7 +340,6 @@ export default function InfoScreen() {
         <View style={{ height: 32 }} />
       </ScrollView>
 
-      <SyncModal visible={syncVisible} onClose={() => setSyncVisible(false)} />
     </SafeAreaView>
   );
 }
@@ -436,18 +404,6 @@ const st = StyleSheet.create({
   tipText:            { flex: 1 },
   tipTitle:           { fontSize: 13, fontWeight: '700', color: '#264653' },
   tipDesc:            { fontSize: 12, color: '#666', marginTop: 2, lineHeight: 17 },
-
-  // Sync
-  syncCard:           { marginHorizontal: 12, backgroundColor: '#fff', borderRadius: 12, padding: 16, gap: 10, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
-  syncLabel:          { fontSize: 13, fontWeight: '700', color: '#264653' },
-  syncCodeRow:        { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  syncCode:           { fontSize: 28, fontWeight: '800', color: '#8338EC', letterSpacing: 5, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
-  copyBtn:            { backgroundColor: '#EDE9FE', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 },
-  copyBtnTxt:         { fontSize: 13, color: '#5B21B6', fontWeight: '600' },
-  copyStatus:         { fontSize: 13, color: '#2A9D8F', fontWeight: '600' },
-  syncHint:           { fontSize: 12, color: '#888', lineHeight: 18 },
-  joinBtn:            { backgroundColor: '#264653', borderRadius: 8, paddingVertical: 12, alignItems: 'center' },
-  joinBtnTxt:         { color: '#fff', fontSize: 14, fontWeight: '700' },
 
   // À propos
   aboutCard:          { marginHorizontal: 12, backgroundColor: '#fff', borderRadius: 12, padding: 16, gap: 6, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
