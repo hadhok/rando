@@ -54,16 +54,16 @@ export default function MapScreen() {
 
   const traceCoords = GR10_TRACE_SAMPLE.map(([lng, lat]) => ({ latitude: lat, longitude: lng }));
 
-  // Trace officielle du trek actif (embarquée dans trekGpx.ts)
-  const officialTrace: [number, number][] | null = activeTrekId
+  // Trace du trek actif (mise en avant)
+  const activeTrekTrace: [number, number][] | null = activeTrekId
     ? (TREK_GPX[activeTrekId] ?? null)
     : null;
 
   // GPX importé manuellement par l'utilisateur (overlay distinct)
   const userOverlay: [number, number][] | null = gpxTrack?.points ?? null;
 
-  // Points à utiliser pour le zoom : trace officielle > GR10 > overlay
-  const zoomPoints: [number, number][] | null = officialTrace
+  // Points à utiliser pour le zoom : trace active > GR10 > overlay
+  const zoomPoints: [number, number][] | null = activeTrekTrace
     ?? (activeTrekId === 'gr10' ? GR10_TRACE_SAMPLE.map(([lng, lat]) => [lat, lng] as [number, number]) : null)
     ?? userOverlay;
 
@@ -167,14 +167,18 @@ export default function MapScreen() {
           strokeWidth={3}
         />
 
-        {/* Trace officielle du trek actif */}
-        {officialTrace && (
-          <Polyline
-            coordinates={officialTrace.map(([lat, lng]) => ({ latitude: lat, longitude: lng }))}
-            strokeColor={COLORS.gpx}
-            strokeWidth={3}
-          />
-        )}
+        {/* Toutes les traces TREK_GPX — grisées, sauf le trek actif en violet */}
+        {Object.entries(TREK_GPX).map(([trekId, pts]) => {
+          const isActive = trekId === activeTrekId;
+          return (
+            <Polyline
+              key={`trek-${trekId}`}
+              coordinates={pts.map(([lat, lng]) => ({ latitude: lat, longitude: lng }))}
+              strokeColor={isActive ? COLORS.gpx : 'rgba(131,56,236,0.25)'}
+              strokeWidth={isActive ? 3.5 : 1.5}
+            />
+          );
+        })}
 
         {/* Overlay GPX importé manuellement */}
         {userOverlay && (
@@ -233,12 +237,12 @@ export default function MapScreen() {
           <View style={[styles.legendDot, { backgroundColor: '#FFB703' }]} />
           <Text style={styles.legendText}>Refuges</Text>
         </View>
-        {officialTrace && (
-          <View style={styles.legendRow}>
-            <View style={[styles.legendDot, { backgroundColor: COLORS.gpx }]} />
-            <Text style={[styles.legendText, { color: COLORS.gpx, fontWeight: '600' }]}>Tracé trek</Text>
-          </View>
-        )}
+        <View style={styles.legendRow}>
+          <View style={[styles.legendDot, { backgroundColor: COLORS.gpx }]} />
+          <Text style={[styles.legendText, { color: activeTrekId ? COLORS.gpx : '#aaa', fontWeight: '600' }]}>
+            {activeTrekId ? 'Tracé trek' : 'Treks'}
+          </Text>
+        </View>
         {userOverlay && (
           <View style={styles.legendRow}>
             <View style={[styles.legendDot, { backgroundColor: '#E63946' }]} />
