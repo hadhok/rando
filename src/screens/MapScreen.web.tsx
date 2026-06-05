@@ -12,6 +12,7 @@ import {
   clearTileCache,
   getTileCacheInfo,
 } from '../utils/tileCache';
+import { TREK_GPX } from '../data/trekGpx';
 import { parseGpx } from '../utils/gpxParser';
 import { useGpx } from '../context/GpxContext';
 
@@ -272,7 +273,7 @@ export default function MapScreen() {
   const [showBivouacs, setShowBivouacs] = useState(true);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [showDlPanel, setShowDlPanel] = useState(false);
-  const { gpxTrack, setGpxTrack, syncStatus } = useGpx();
+  const { gpxTrack, setGpxTrack, syncStatus, activeTrekId } = useGpx();
   const [gpxError, setGpxError] = useState('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -348,6 +349,24 @@ export default function MapScreen() {
         />
         <Polyline positions={traceCoords} color={COLORS.trace} weight={3} />
 
+        {/* Toutes les traces de trek — pâles, sauf le trek actif en violet vif */}
+        {Object.entries(TREK_GPX).map(([trekId, pts]) => {
+          const isActive = trekId === activeTrekId;
+          return (
+            <Polyline
+              key={`trek-${trekId}`}
+              positions={pts}
+              color={COLORS.gpx}
+              weight={isActive ? 3.5 : 1.5}
+              opacity={isActive ? 1 : 0.25}
+            />
+          );
+        })}
+
+        {activeTrekId && TREK_GPX[activeTrekId] && (
+          <FitBoundsToGpx points={TREK_GPX[activeTrekId]} />
+        )}
+
         {gpxTrack && (
           <>
             <Polyline
@@ -357,7 +376,7 @@ export default function MapScreen() {
               dashArray="8,5"
               opacity={0.9}
             />
-            <FitBoundsToGpx points={gpxTrack.points} />
+            {!activeTrekId && <FitBoundsToGpx points={gpxTrack.points} />}
           </>
         )}
 
@@ -417,6 +436,12 @@ export default function MapScreen() {
         <View style={styles.legendRow}>
           <Text style={styles.legendEmoji}>⛺</Text>
           <Text style={styles.legendText}>Bivouacs</Text>
+        </View>
+        <View style={styles.legendRow}>
+          <View style={[styles.legendDot, { backgroundColor: COLORS.gpx, opacity: activeTrekId ? 1 : 0.4 }]} />
+          <Text style={[styles.legendText, { color: activeTrekId ? COLORS.gpx : '#aaa', fontWeight: '600' }]}>
+            {activeTrekId ? 'Trek actif' : 'Treks'}
+          </Text>
         </View>
         {gpxTrack && (
           <View style={styles.legendRow}>
