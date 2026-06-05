@@ -263,6 +263,42 @@ export const TREKS: Trek[] = [
     ],
   },
   {
+    id: 'sainte-victoire',
+    name: 'Sainte-Victoire — Croix de Provence',
+    days: 1,
+    distance: '12km',
+    dp: '+879m',
+    region: 'Provence',
+    maxAlt: '944m',
+    difficulty: 2,
+    color: '#c0512f',
+    cardElevPath:
+      'M0,47 L24,46 L47,39 L71,29 L94,25 L118,19 L141,11 L165,2 L188,10 L212,19 L235,29 L259,36 L282,42 L306,54 L329,48 L353,46 L376,47 L400,47 L400,60 L0,60 Z',
+    detailElevPath:
+      'M0,47 L17,46 L35,46 L52,38 L70,31 L87,28 L104,25 L122,19 L139,14 L157,6 L174,2 L191,8 L209,16 L226,23 L243,30 L261,35 L278,41 L296,45 L313,54 L330,52 L348,47 L365,46 L383,47 L400,47 L400,60 L0,60 Z',
+    trekDays: [
+      {
+        title: 'Sentier Imoucha — Boucle · Départ 08h00',
+        stages: [
+          { name: 'Barrage de Bimont', dist: '0km', alt: '380m', dp: '—', time: '08h00', badges: ['water'] },
+          { name: 'Prieuré de Sainte-Victoire', dist: '3km', alt: '700m', dp: '+320m', time: '09h30', badges: ['water'] },
+          { name: 'Croix de Provence (sommet)', dist: '5km', alt: '944m', dp: '+564m', time: '10h45', rowType: 'highlight' },
+          { name: 'Refuge Cézanne', dist: '6km', alt: '900m', dp: '+564m', time: '11h15', badges: ['refuge'] },
+          { name: 'Sentier Imoucha — Crête des Costes Chaudes', dist: '8km', alt: '800m', dp: '+590m', time: '12h30' },
+          { name: 'Pas du Moine', dist: '9.5km', alt: '700m', dp: '+600m', time: '13h15' },
+          { name: 'Pas de l\'Escalette', dist: '10.5km', alt: '580m', dp: '+610m', time: '14h00' },
+          { name: 'Barrage de Bimont', dist: '12km', alt: '380m', dp: '+879m', time: '15h00', rowType: 'biv' },
+        ],
+      },
+    ],
+    notes: [
+      { icon: '🅿️', label: 'Parking Barrage de Bimont', sub: 'D10 près Saint-Marc-Jaumegarde · Gratuit · Arriver tôt' },
+      { icon: '💧', label: 'Eau au Prieuré & Refuge Cézanne', sub: 'Aucune autre source sur la crête — prévoir 2 L' },
+      { icon: '⚠️', label: 'Crête très exposée', sub: 'Vent violent fréquent · Interdit par orage · Pas de bivouac' },
+      { icon: '🏠', label: 'Refuge Cézanne', sub: 'Géré par le CAF Aix · Ravitaillement possible · ~20 places' },
+    ],
+  },
+  {
     id: 'bidarray-sare',
     name: 'Bidarray → Sare — Crêtes d\'Iparla',
     days: 2,

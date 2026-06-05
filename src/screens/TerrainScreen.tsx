@@ -32,17 +32,21 @@ const ZONE_BY_TREK: Record<string, { lat: number; lng: number; label: string; su
   gr10:          { lat: 43.37, lng: -1.78, label: 'GR10 — Pays Basque',    sub: 'Zone côtière · 0–600m' },
   ayous:         { lat: 42.84, lng: -0.44, label: 'Pyrénées — Ossau',      sub: 'Altitude 2000m+' },
   artouste:      { lat: 42.84, lng: -0.44, label: 'Pyrénées — Ossau',      sub: 'Altitude 2000m+' },
-  'bidarray-sare': { lat: 43.29, lng: -1.44, label: 'Bidarray – Sare',     sub: 'Crêtes Iparla · 110–1044m' },
+  'bidarray-sare':   { lat: 43.29, lng: -1.44, label: 'Bidarray – Sare',          sub: 'Crêtes Iparla · 110–1044m' },
+  'sainte-victoire': { lat: 43.53, lng:  5.56, label: 'Sainte-Victoire — Provence', sub: 'Massif calcaire · 380–944m' },
 };
 const ALL_ZONES = [
-  { id: 'gr10',          ...ZONE_BY_TREK.gr10 },
-  { id: 'ossau',         ...ZONE_BY_TREK.ayous },
-  { id: 'bidarray-sare', ...ZONE_BY_TREK['bidarray-sare'] },
+  { id: 'gr10',            ...ZONE_BY_TREK.gr10 },
+  { id: 'ossau',           ...ZONE_BY_TREK.ayous },
+  { id: 'bidarray-sare',   ...ZONE_BY_TREK['bidarray-sare'] },
+  { id: 'sainte-victoire', ...ZONE_BY_TREK['sainte-victoire'] },
 ];
 
 // Maps trek IDs to weather zone IDs (ayous + artouste share the 'ossau' zone)
 const TREK_TO_WEATHER_ZONE: Record<string, string> = {
-  gr10: 'gr10', ayous: 'ossau', artouste: 'ossau', 'bidarray-sare': 'bidarray-sare',
+  gr10: 'gr10', ayous: 'ossau', artouste: 'ossau',
+  'bidarray-sare': 'bidarray-sare',
+  'sainte-victoire': 'sainte-victoire',
 };
 
 const CACHE_TTL       = 3 * 60 * 60 * 1000;
