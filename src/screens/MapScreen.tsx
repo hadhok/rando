@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -9,14 +9,25 @@ import {
   Alert,
 } from 'react-native';
 import MapView, { Polyline, Marker, PROVIDER_DEFAULT } from 'react-native-maps';
+import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { GR10_TRACE_SAMPLE, GR10_CENTER } from '../data/trace';
 import { ETAPES } from '../data/etapes';
 import { REFUGES } from '../data/refuges';
+import { TREKS } from '../data/treks';
 import { parseGpx } from '../utils/gpxParser';
 import { useGpx } from '../context/GpxContext';
+
+// Centre par trek (lat/lng + delta de zoom)
+const TREK_CENTER: Record<string, { lat: number; lng: number; delta: number }> = {
+  gr10:              { lat: 43.37,  lng: -1.78,  delta: 2.5  },
+  ayous:             { lat: 42.84,  lng: -0.44,  delta: 0.15 },
+  artouste:          { lat: 42.84,  lng: -0.44,  delta: 0.15 },
+  'bidarray-sare':   { lat: 43.29,  lng: -1.44,  delta: 0.35 },
+  'sainte-victoire': { lat: 43.535, lng:  5.557, delta: 0.10 },
+};
 
 const COLORS = {
   trace: '#E63946',
@@ -32,9 +43,34 @@ export default function MapScreen() {
   const [locationError, setLocationError] = useState('');
   const [showRefuges, setShowRefuges] = useState(true);
   const [loading, setLoading] = useState(true);
-  const { gpxTrack, setGpxTrack } = useGpx();
+  const { gpxTrack, setGpxTrack, activeTrekId } = useGpx();
 
   const traceCoords = GR10_TRACE_SAMPLE.map(([lng, lat]) => ({ latitude: lat, longitude: lng }));
+
+  // Zoom sur le trek actif à chaque fois que l'écran prend le focus
+  useFocusEffect(useCallback(() => {
+    if (!mapRef.current) return;
+    // Si un GPX importé est présent, zoomer dessus en priorité
+    if (gpxTrack && gpxTrack.points.length > 0) {
+      const lats = gpxTrack.points.map(([lat]) => lat);
+      const lngs = gpxTrack.points.map(([, lng]) => lng);
+      mapRef.current.animateToRegion({
+        latitude: (Math.min(...lats) + Math.max(...lats)) / 2,
+        longitude: (Math.min(...lngs) + Math.max(...lngs)) / 2,
+        latitudeDelta: (Math.max(...lats) - Math.min(...lats)) * 1.5 || 0.1,
+        longitudeDelta: (Math.max(...lngs) - Math.min(...lngs)) * 1.5 || 0.1,
+      }, 600);
+      return;
+    }
+    // Sinon zoomer sur le centre du trek actif
+    if (activeTrekId && TREK_CENTER[activeTrekId]) {
+      const { lat, lng, delta } = TREK_CENTER[activeTrekId];
+      mapRef.current.animateToRegion({
+        latitude: lat, longitude: lng,
+        latitudeDelta: delta, longitudeDelta: delta,
+      }, 600);
+    }
+  }, [activeTrekId, gpxTrack]));
 
   useEffect(() => {
     (async () => {
@@ -64,13 +100,14 @@ export default function MapScreen() {
     });
   };
 
-  const centerOnTrace = () => {
-    mapRef.current?.animateToRegion({
-      latitude: GR10_CENTER.lat,
-      longitude: GR10_CENTER.lng,
-      latitudeDelta: 2.5,
-      longitudeDelta: 2.5,
-    });
+  const centerOnTrek = () => {
+    if (!mapRef.current) return;
+    if (activeTrekId && TREK_CENTER[activeTrekId]) {
+      const { lat, lng, delta } = TREK_CENTER[activeTrekId];
+      mapRef.current.animateToRegion({ latitude: lat, longitude: lng, latitudeDelta: delta, longitudeDelta: delta });
+    } else {
+      mapRef.current.animateToRegion({ latitude: GR10_CENTER.lat, longitude: GR10_CENTER.lng, latitudeDelta: 2.5, longitudeDelta: 2.5 });
+    }
   };
 
   const importGpx = async () => {
@@ -203,8 +240,8 @@ export default function MapScreen() {
         >
           <Text style={styles.btnText}>{showRefuges ? '🏠 Masquer' : '🏠 Refuges'}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.btn} onPress={centerOnTrace}>
-          <Text style={styles.btnText}>🗺 Vue globale</Text>
+        <TouchableOpacity style={styles.btn} onPress={centerOnTrek}>
+          <Text style={styles.btnText}>🗺 Vue trek</Text>
         </TouchableOpacity>
         {userLocation && (
           <TouchableOpacity style={[styles.btn, styles.btnAccent]} onPress={centerOnUser}>
