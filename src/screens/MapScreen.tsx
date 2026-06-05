@@ -54,20 +54,25 @@ export default function MapScreen() {
 
   const traceCoords = GR10_TRACE_SAMPLE.map(([lng, lat]) => ({ latitude: lat, longitude: lng }));
 
-  // Points du trek actif : GPX importé > GPX embarqué > null
-  const trekPoints: [number, number][] | null = activeTrekId
-    ? (gpxTrack?.points ?? TREK_GPX[activeTrekId] ?? null)
-    : (gpxTrack?.points ?? null);
+  // Trace officielle du trek actif (embarquée dans trekGpx.ts)
+  const officialTrace: [number, number][] | null = activeTrekId
+    ? (TREK_GPX[activeTrekId] ?? null)
+    : null;
+
+  // GPX importé manuellement par l'utilisateur (overlay distinct)
+  const userOverlay: [number, number][] | null = gpxTrack?.points ?? null;
+
+  // Points à utiliser pour le zoom : trace officielle > GR10 > overlay
+  const zoomPoints: [number, number][] | null = officialTrace
+    ?? (activeTrekId === 'gr10' ? GR10_TRACE_SAMPLE.map(([lng, lat]) => [lat, lng] as [number, number]) : null)
+    ?? userOverlay;
 
   const zoomToTrek = useCallback(() => {
     if (!mapRef.current || !mapReady.current) return;
-    if (trekPoints && trekPoints.length > 0) {
-      mapRef.current.animateToRegion(bboxRegion(trekPoints), 600);
-    } else if (activeTrekId === 'gr10') {
-      const pts = GR10_TRACE_SAMPLE.map(([lng, lat]) => [lat, lng] as [number, number]);
-      mapRef.current.animateToRegion(bboxRegion(pts, 1.1), 600);
+    if (zoomPoints && zoomPoints.length > 0) {
+      mapRef.current.animateToRegion(bboxRegion(zoomPoints), 600);
     }
-  }, [trekPoints, activeTrekId]);
+  }, [zoomPoints]);
 
   // Zoom dès que l'écran prend le focus
   useFocusEffect(useCallback(() => {
@@ -162,13 +167,22 @@ export default function MapScreen() {
           strokeWidth={3}
         />
 
-        {/* Tracé GPX du trek actif (embarqué ou importé) */}
-        {trekPoints && trekPoints.length > 0 && (
+        {/* Trace officielle du trek actif */}
+        {officialTrace && (
           <Polyline
-            coordinates={trekPoints.map(([lat, lng]) => ({ latitude: lat, longitude: lng }))}
-            strokeColor={gpxTrack ? COLORS.gpx : '#8338EC'}
-            strokeWidth={gpxTrack ? 3 : 2.5}
-            lineDashPattern={gpxTrack ? [8, 5] : undefined}
+            coordinates={officialTrace.map(([lat, lng]) => ({ latitude: lat, longitude: lng }))}
+            strokeColor={COLORS.gpx}
+            strokeWidth={3}
+          />
+        )}
+
+        {/* Overlay GPX importé manuellement */}
+        {userOverlay && (
+          <Polyline
+            coordinates={userOverlay.map(([lat, lng]) => ({ latitude: lat, longitude: lng }))}
+            strokeColor="#E63946"
+            strokeWidth={2.5}
+            lineDashPattern={[8, 5]}
           />
         )}
 
@@ -219,12 +233,16 @@ export default function MapScreen() {
           <View style={[styles.legendDot, { backgroundColor: '#FFB703' }]} />
           <Text style={styles.legendText}>Refuges</Text>
         </View>
-        {trekPoints && trekPoints.length > 0 && (
+        {officialTrace && (
           <View style={styles.legendRow}>
             <View style={[styles.legendDot, { backgroundColor: COLORS.gpx }]} />
-            <Text style={[styles.legendText, { color: COLORS.gpx, fontWeight: '600' }]}>
-              {gpxTrack ? 'GPX importé' : 'Tracé trek'}
-            </Text>
+            <Text style={[styles.legendText, { color: COLORS.gpx, fontWeight: '600' }]}>Tracé trek</Text>
+          </View>
+        )}
+        {userOverlay && (
+          <View style={styles.legendRow}>
+            <View style={[styles.legendDot, { backgroundColor: '#E63946' }]} />
+            <Text style={[styles.legendText, { color: '#E63946', fontWeight: '600' }]}>GPX importé</Text>
           </View>
         )}
       </View>
@@ -246,12 +264,12 @@ export default function MapScreen() {
           </TouchableOpacity>
         )}
         <TouchableOpacity
-          style={[styles.btn, gpxTrack ? styles.btnGpxActive : styles.btnGpx]}
+          style={[styles.btn, userOverlay ? styles.btnGpxActive : styles.btnGpx]}
           onPress={importGpx}
         >
-          <Text style={[styles.btnText, gpxTrack && { color: COLORS.gpx }]}>📂 Importer GPX</Text>
+          <Text style={[styles.btnText, userOverlay ? { color: COLORS.gpx } : {}]}>📂 {userOverlay ? 'GPX importé' : 'Importer GPX'}</Text>
         </TouchableOpacity>
-        {gpxTrack && (
+        {userOverlay && gpxTrack && (
           <View style={styles.gpxInfo}>
             <Text style={styles.gpxInfoName} numberOfLines={1}>{gpxTrack.name}</Text>
             <Text style={styles.gpxInfoPoints}>{gpxTrack.points.length} pts</Text>
