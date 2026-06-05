@@ -7,23 +7,26 @@ import { TREKS } from '../data/treks';
 
 // Mirrors the constants from TerrainScreen.tsx
 const ZONE_BY_TREK: Record<string, { lat: number; lng: number; label: string; sub: string }> = {
-  gr10:            { lat: 43.37, lng: -1.78, label: 'GR10 — Pays Basque',    sub: 'Zone côtière · 0–600m' },
-  ayous:           { lat: 42.84, lng: -0.44, label: 'Pyrénées — Ossau',      sub: 'Altitude 2000m+' },
-  artouste:        { lat: 42.84, lng: -0.44, label: 'Pyrénées — Ossau',      sub: 'Altitude 2000m+' },
-  'bidarray-sare': { lat: 43.29, lng: -1.44, label: 'Bidarray – Sare',       sub: 'Crêtes Iparla · 110–1044m' },
+  gr10:              { lat: 43.37, lng: -1.78, label: 'GR10 — Pays Basque',          sub: 'Zone côtière · 0–600m' },
+  ayous:             { lat: 42.84, lng: -0.44, label: 'Pyrénées — Ossau',            sub: 'Altitude 2000m+' },
+  artouste:          { lat: 42.84, lng: -0.44, label: 'Pyrénées — Ossau',            sub: 'Altitude 2000m+' },
+  'bidarray-sare':   { lat: 43.29, lng: -1.44, label: 'Bidarray – Sare',             sub: 'Crêtes Iparla · 110–1044m' },
+  'sainte-victoire': { lat: 43.53, lng:  5.56, label: 'Sainte-Victoire — Provence',  sub: 'Massif calcaire · 380–944m' },
 };
 
 const ALL_ZONES = [
-  { id: 'gr10',          ...ZONE_BY_TREK.gr10 },
-  { id: 'ossau',         ...ZONE_BY_TREK.ayous },
-  { id: 'bidarray-sare', ...ZONE_BY_TREK['bidarray-sare'] },
+  { id: 'gr10',            ...ZONE_BY_TREK.gr10 },
+  { id: 'ossau',           ...ZONE_BY_TREK.ayous },
+  { id: 'bidarray-sare',   ...ZONE_BY_TREK['bidarray-sare'] },
+  { id: 'sainte-victoire', ...ZONE_BY_TREK['sainte-victoire'] },
 ];
 
 const TREK_TO_WEATHER_ZONE: Record<string, string> = {
-  gr10:            'gr10',
-  ayous:           'ossau',
-  artouste:        'ossau',
-  'bidarray-sare': 'bidarray-sare',
+  gr10:              'gr10',
+  ayous:             'ossau',
+  artouste:          'ossau',
+  'bidarray-sare':   'bidarray-sare',
+  'sainte-victoire': 'sainte-victoire',
 };
 
 // ─── Zone coverage ────────────────────────────────────────────────────────────
@@ -49,13 +52,12 @@ describe('ZONE_BY_TREK', () => {
     }
   });
 
-  test('zone coordinates are in the Pyrenees region', () => {
-    // Pyrenees approx: lat 42–44, lng -2 to 3
+  test('zone coordinates are in metropolitan France (lat 42–51, lng -5 to 9)', () => {
     for (const zone of Object.values(ZONE_BY_TREK)) {
       expect(zone.lat).toBeGreaterThan(42);
-      expect(zone.lat).toBeLessThan(44);
-      expect(zone.lng).toBeGreaterThan(-3);
-      expect(zone.lng).toBeLessThan(4);
+      expect(zone.lat).toBeLessThan(51);
+      expect(zone.lng).toBeGreaterThan(-5);
+      expect(zone.lng).toBeLessThan(9);
     }
   });
 
@@ -124,11 +126,12 @@ describe('ALL_ZONES', () => {
     }
   });
 
-  test('contains gr10, ossau, bidarray-sare', () => {
+  test('contains gr10, ossau, bidarray-sare, sainte-victoire', () => {
     const ids = ALL_ZONES.map(z => z.id);
     expect(ids).toContain('gr10');
     expect(ids).toContain('ossau');
     expect(ids).toContain('bidarray-sare');
+    expect(ids).toContain('sainte-victoire');
   });
 
   test('ossau zone is at high altitude (Pyrenees mountains)', () => {
@@ -182,6 +185,12 @@ describe('Weather zone filtering logic', () => {
     const zones = getVisibleZones('bidarray-sare');
     expect(zones).toHaveLength(1);
     expect(zones[0].id).toBe('bidarray-sare');
+  });
+
+  test('sainte-victoire active → only sainte-victoire zone', () => {
+    const zones = getVisibleZones('sainte-victoire');
+    expect(zones).toHaveLength(1);
+    expect(zones[0].id).toBe('sainte-victoire');
   });
 
   test('unknown trek ID falls back to using trek id as zone id', () => {
