@@ -169,6 +169,16 @@ const CARDS_SOS: TerrainCard = {
   ],
 };
 
+const CARDS_SOS_PROVENCE: TerrainCard = {
+  id: 'sos', icon: '🆘', title: 'Urgences', defaultOpen: true,
+  rows: [
+    { icon: '📞', label: '112', sub: 'Urgences Europe — fonctionne hors réseau' },
+    { icon: '🚒', label: 'SDIS 13 — Pompiers', sub: '18 · Secours en montagne Bouches-du-Rhône' },
+    { icon: '⛑', label: 'PGHM Marseille', sub: '04 42 93 03 00 · Secours montagne 13' },
+    { icon: '📡', label: 'Signal limité sur la crête', sub: 'Orange / SFR couvrent partiellement — se déplacer si besoin' },
+  ],
+};
+
 const TERRAIN_BY_TREK: Record<string, TerrainCard[]> = {
   gr10: [
     {
@@ -271,6 +281,110 @@ const TERRAIN_BY_TREK: Record<string, TerrainCard[]> = {
     },
     CARDS_SOS,
   ],
+  'bidarray-sare': [
+    {
+      id: 'water', icon: '💧', title: "Points d'eau", meta: 'Bidarray → Sare', defaultOpen: true,
+      rows: [
+        { icon: '●', label: 'Bidarray — fontaine village', sub: 'Eau potable garantie · Faire le plein au départ', alt: '110m' },
+        { icon: '●', label: 'Col Harrieta', sub: 'Source en contrebas du col · Débit variable été · Filtrer', alt: '687m' },
+        { icon: '●', label: 'Ainhoa — fontaine place', sub: 'Eau potable · Village étape · Bivouac J1', alt: '130m' },
+        { icon: '●', label: 'Col Meharroste', sub: 'Source fiable · 400m après le col côté espagnol', alt: '486m' },
+        { icon: '●', label: 'Sare — fontaine village', sub: 'Eau potable · Arrivée J2', alt: '70m' },
+        { icon: '⚠️', label: 'Arête Iparla (km 3–13)', sub: "Aucun point d'eau sur la crête — partir avec 2 L minimum", warning: true },
+      ],
+    },
+    {
+      id: 'bivouac', icon: '⛺', title: 'Spots bivouac', meta: 'Crêtes Iparla',
+      rows: [
+        { icon: 'J1', label: 'Arête Iparla — plateau sommital', sub: 'Zone ouverte · Vue panoramique · Vent fort possible · 1044m', alt: '1044m' },
+        { icon: 'J1', label: 'Ainhoa — camping municipal', sub: 'Alternative : camping à l\'entrée du village · 5€/pers', alt: '130m' },
+        { icon: 'J2', label: 'Crête de Larraun', sub: 'Terrain plat · Zone ouverte · Peu venté côté espagnol', alt: '520m' },
+        { icon: '⚠️', label: 'Zones pastorales Iparla', sub: 'Respecter les troupeaux · Ne pas bivouaquer près des enclos', warning: true },
+      ],
+    },
+    {
+      id: 'fauna', icon: '🦅', title: 'Faune & flore',
+      rows: [
+        { icon: '🦅', label: 'Vautours fauves', sub: 'Colonies nombreuses sur les falaises d\'Iparla · Envergure 2,5m' },
+        { icon: '🐴', label: 'Pottoks & manechs', sub: 'Chevaux et moutons basques libres sur la crête · Ne pas nourrir' },
+        { icon: '🦌', label: 'Isards', sub: 'Présents sur les zones rocheuses · Discrets le matin' },
+        { icon: '🐍', label: 'Vipère aspic', sub: 'Prairies et éboulis ensoleillés · Peu agressive · Reculer' },
+        { icon: '🌿', label: 'Fougères & ajoncs', sub: 'Végétation typique landes basques · Balisage parfois masqué' },
+      ],
+    },
+    {
+      id: 'regs', icon: '⚖️', title: 'Réglementation',
+      rows: [
+        { icon: '✓', label: 'Hors Parc National', sub: 'Zone pastorale communale — réglementation souple' },
+        { icon: '✓', label: 'Bivouac toléré', sub: 'Sur la crête et zones ouvertes · Respecter troupeaux · Partir avant 9h' },
+        { icon: '✗', label: 'Feux strictement interdits', sub: 'Landes basques très inflammables — arrêté permanent' },
+        { icon: '⚠️', label: 'Crête en zone frontalière', sub: 'Sentier longe la frontière espagnole · Rester sur le balisage', warning: true },
+        { icon: '⚠️', label: 'Vent et orage', sub: 'Arête totalement exposée · Demi-tour immédiat si orage annoncé', warning: true },
+      ],
+    },
+    {
+      id: 'maps', icon: '🗺', title: 'Cartes & navigation',
+      rows: [
+        { icon: '📱', label: 'OsmAnd / Komoot', sub: 'GPX Bidarray_Sare.gpx · Balisage GR10 + variante crêtes' },
+        { icon: '📄', label: '1346OT — Hendaye / La Rhune', sub: 'Couvre J1 · Carte IGN 1:25 000 · Indispensable' },
+        { icon: '📄', label: '1247OT — Cambo / St-Jean-de-Luz', sub: 'Couvre J2 vers Sare · IGN 1:25 000' },
+        { icon: '🌐', label: 'Retour depuis Sare', sub: 'Bus ATCRB C6 GRATUIT Sare → Saint-Jean-de-Luz → Hendaye' },
+      ],
+    },
+    CARDS_SOS,
+  ],
+  'sainte-victoire': [
+    {
+      id: 'water', icon: '💧', title: "Points d'eau", meta: 'Boucle Bimont', defaultOpen: true,
+      rows: [
+        { icon: '●', label: 'Barrage de Bimont', sub: 'Eau au parking départ · Fontaine · Faire le plein obligatoire', alt: '380m' },
+        { icon: '●', label: 'Prieuré de Sainte-Victoire', sub: 'Fontaine aménagée · Eau potable · Dernier point avant la crête', alt: '700m' },
+        { icon: '●', label: 'Refuge Cézanne', sub: 'Eau disponible au refuge · Ravitaillement · Géré par le CAF', alt: '900m' },
+        { icon: '⚠️', label: 'Sur la crête (km 6–10)', sub: 'Aucun point d\'eau — partir avec 2 L minimum de Bimont', warning: true },
+        { icon: '⚠️', label: 'Été (juin–sept)', sub: 'Chaleur intense + aucune ombre sur la crête — 3 L recommandés', warning: true },
+      ],
+    },
+    {
+      id: 'bivouac', icon: '⛺', title: 'Bivouac & hébergement',
+      rows: [
+        { icon: '✗', label: 'Bivouac interdit', sub: 'Sainte-Victoire est un site classé — bivouac formellement interdit', warning: true },
+        { icon: '🏠', label: 'Refuge Cézanne', sub: 'CAF Aix-en-Provence · ~20 places · Réservation conseillée · Gardé en saison' },
+        { icon: '🏠', label: 'Prieuré — Maison Sainte-Victoire', sub: 'Possibilité de dormir au Prieuré · Contacter au préalable' },
+        { icon: '🚗', label: 'Hébergements Aix-en-Provence', sub: 'Navette ou taxi depuis le parking Bimont · 15 km du centre' },
+      ],
+    },
+    {
+      id: 'fauna', icon: '🦅', title: 'Faune & flore',
+      rows: [
+        { icon: '🦅', label: 'Aigle de Bonelli', sub: 'Espèce protégée · Nidification sur les falaises · Ne pas s\'approcher' },
+        { icon: '🐗', label: 'Sangliers', sub: 'Présents en forêt sous la crête · Actifs tôt le matin et le soir' },
+        { icon: '🐑', label: 'Mouflons', sub: 'Introduits sur la crête · Groupes visibles sur les zones rocheuses' },
+        { icon: '🌿', label: 'Pin d\'Alep & garrigue', sub: 'Végétation typique Provence · Très inflammable en été' },
+        { icon: '🌸', label: 'Orchidées sauvages', sub: 'Nombreuses espèces · Printanières · Notamment sur le versant nord' },
+      ],
+    },
+    {
+      id: 'regs', icon: '⚖️', title: 'Réglementation',
+      rows: [
+        { icon: '✗', label: 'Site classé Loi 1930', sub: 'Toute modification du site est interdite · Respect absolu exigé' },
+        { icon: '✗', label: 'Bivouac interdit', sub: 'Sur l\'ensemble du massif — amende possible' },
+        { icon: '✗', label: 'Feux et barbecue interdits', sub: 'Risque incendie extrême · Interdiction permanente sur tout le massif' },
+        { icon: '✗', label: 'Chiens interdits', sub: 'Sur les sentiers balisés du massif · Arrêté préfectoral 13' },
+        { icon: '⚠️', label: 'Fermeture massif été', sub: 'Risque incendie : massif parfois fermé juil–août · Vérifier avant départ', warning: true },
+        { icon: '✓', label: 'Accès libre hors fermeture', sub: 'Sentiers balisés ouverts · Respecter le balisage · LNT' },
+      ],
+    },
+    {
+      id: 'maps', icon: '🗺', title: 'Cartes & navigation',
+      rows: [
+        { icon: '📱', label: 'OsmAnd / IGN Rando', sub: 'GPX SainteVictoire_Imoucha.gpx · Fonds IGN hors ligne' },
+        { icon: '📄', label: '3244ET — Aix-en-Provence', sub: 'Carte IGN 1:25 000 · Couvre tout le massif · Indispensable' },
+        { icon: '📄', label: 'Topo FFRP — GR2013', sub: 'Tour de la Sainte-Victoire · Réf. 2013 · Nombreux itinéraires' },
+        { icon: '🅿️', label: 'Parking Barrage de Bimont', sub: 'D10 depuis Saint-Marc-Jaumegarde · Gratuit · Arriver avant 8h en été' },
+      ],
+    },
+    CARDS_SOS_PROVENCE,
+  ],
 };
 TERRAIN_BY_TREK.artouste = TERRAIN_BY_TREK.ayous;
 
@@ -360,6 +474,18 @@ const NUMEROS_BY_TREK: Record<string, NumItem[]> = {
     { icon: '🏠', label: 'Maison du PNP Laruns', sub: 'Parc National Pyrénées · Info terrain', tel: '0559054159' },
     { icon: '🚓', label: 'Gendarmerie Laruns', sub: 'Non-urgence', tel: '0559053117' },
     { icon: '🚕', label: 'Taxi Ossau', sub: 'Laruns et alentours · Sur réservation', tel: '0559053117' },
+  ],
+  'bidarray-sare': [
+    { icon: '🚌', label: 'Bus ATCRB C6', sub: 'Sare → Saint-Jean-de-Luz → Hendaye · GRATUIT', tel: '0559265999' },
+    { icon: '🚌', label: 'Bus ATCRB C7', sub: 'Ainhoa → Hendaye · Sur réservation', tel: '0559265999' },
+    { icon: '📍', label: 'Office Tourisme Bidarray', sub: 'Infos locales et hébergements', tel: '0559377000' },
+    { icon: '🚕', label: 'Taxi Pays Basque', sub: 'Bidarray / Ainhoa / Sare · Sur réservation', tel: '0559470000' },
+  ],
+  'sainte-victoire': [
+    { icon: '🏠', label: 'Refuge Cézanne', sub: 'Réservation · CAF Aix-en-Provence · Gardé en saison', tel: '0442269378' },
+    { icon: '📍', label: 'Maison Sainte-Victoire', sub: 'Info massif · Ouverture/fermeture · Météo locale', tel: '0442661310' },
+    { icon: '🚒', label: 'Pompiers SDIS 13', sub: 'Secours en montagne Bouches-du-Rhône', tel: '18' },
+    { icon: '🚕', label: 'Taxi Aix-en-Provence', sub: 'Retour depuis Bimont vers Aix · Sur réservation', tel: '0442270101' },
   ],
 };
 NUMEROS_BY_TREK.artouste = NUMEROS_BY_TREK.ayous;

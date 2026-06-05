@@ -17,17 +17,9 @@ import { GR10_TRACE_SAMPLE, GR10_CENTER } from '../data/trace';
 import { ETAPES } from '../data/etapes';
 import { REFUGES } from '../data/refuges';
 import { TREKS } from '../data/treks';
+import { TREK_GPX } from '../data/trekGpx';
 import { parseGpx } from '../utils/gpxParser';
 import { useGpx } from '../context/GpxContext';
-
-// Centre par trek (lat/lng + delta de zoom)
-const TREK_CENTER: Record<string, { lat: number; lng: number; delta: number }> = {
-  gr10:              { lat: 43.37,  lng: -1.78,  delta: 2.5  },
-  ayous:             { lat: 42.84,  lng: -0.44,  delta: 0.15 },
-  artouste:          { lat: 42.84,  lng: -0.44,  delta: 0.15 },
-  'bidarray-sare':   { lat: 43.29,  lng: -1.44,  delta: 0.35 },
-  'sainte-victoire': { lat: 43.535, lng:  5.557, delta: 0.10 },
-};
 
 const COLORS = {
   trace: '#E63946',
@@ -37,8 +29,23 @@ const COLORS = {
   gpx: '#8338EC',
 };
 
+// Calcule la région englobant un tableau de points [lat, lng]
+function bboxRegion(pts: [number, number][], paddingFactor = 1.4) {
+  const lats = pts.map(([lat]) => lat);
+  const lngs = pts.map(([, lng]) => lng);
+  const latD = (Math.max(...lats) - Math.min(...lats)) * paddingFactor || 0.08;
+  const lngD = (Math.max(...lngs) - Math.min(...lngs)) * paddingFactor || 0.08;
+  return {
+    latitude:      (Math.min(...lats) + Math.max(...lats)) / 2,
+    longitude:     (Math.min(...lngs) + Math.max(...lngs)) / 2,
+    latitudeDelta:  latD,
+    longitudeDelta: lngD,
+  };
+}
+
 export default function MapScreen() {
   const mapRef = useRef<MapView>(null);
+  const mapReady = useRef(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationError, setLocationError] = useState('');
   const [showRefuges, setShowRefuges] = useState(true);
@@ -47,30 +54,27 @@ export default function MapScreen() {
 
   const traceCoords = GR10_TRACE_SAMPLE.map(([lng, lat]) => ({ latitude: lat, longitude: lng }));
 
-  // Zoom sur le trek actif à chaque fois que l'écran prend le focus
+  // Points du trek actif : GPX importé > GPX embarqué > null
+  const trekPoints: [number, number][] | null = activeTrekId
+    ? (gpxTrack?.points ?? TREK_GPX[activeTrekId] ?? null)
+    : (gpxTrack?.points ?? null);
+
+  const zoomToTrek = useCallback(() => {
+    if (!mapRef.current || !mapReady.current) return;
+    if (trekPoints && trekPoints.length > 0) {
+      mapRef.current.animateToRegion(bboxRegion(trekPoints), 600);
+    } else if (activeTrekId === 'gr10') {
+      const pts = GR10_TRACE_SAMPLE.map(([lng, lat]) => [lat, lng] as [number, number]);
+      mapRef.current.animateToRegion(bboxRegion(pts, 1.1), 600);
+    }
+  }, [trekPoints, activeTrekId]);
+
+  // Zoom dès que l'écran prend le focus
   useFocusEffect(useCallback(() => {
-    if (!mapRef.current) return;
-    // Si un GPX importé est présent, zoomer dessus en priorité
-    if (gpxTrack && gpxTrack.points.length > 0) {
-      const lats = gpxTrack.points.map(([lat]) => lat);
-      const lngs = gpxTrack.points.map(([, lng]) => lng);
-      mapRef.current.animateToRegion({
-        latitude: (Math.min(...lats) + Math.max(...lats)) / 2,
-        longitude: (Math.min(...lngs) + Math.max(...lngs)) / 2,
-        latitudeDelta: (Math.max(...lats) - Math.min(...lats)) * 1.5 || 0.1,
-        longitudeDelta: (Math.max(...lngs) - Math.min(...lngs)) * 1.5 || 0.1,
-      }, 600);
-      return;
-    }
-    // Sinon zoomer sur le centre du trek actif
-    if (activeTrekId && TREK_CENTER[activeTrekId]) {
-      const { lat, lng, delta } = TREK_CENTER[activeTrekId];
-      mapRef.current.animateToRegion({
-        latitude: lat, longitude: lng,
-        latitudeDelta: delta, longitudeDelta: delta,
-      }, 600);
-    }
-  }, [activeTrekId, gpxTrack]));
+    // Petit délai pour laisser le temps à la carte de finir son rendu si elle vient de monter
+    const t = setTimeout(zoomToTrek, 300);
+    return () => clearTimeout(t);
+  }, [zoomToTrek]));
 
   useEffect(() => {
     (async () => {
@@ -100,15 +104,7 @@ export default function MapScreen() {
     });
   };
 
-  const centerOnTrek = () => {
-    if (!mapRef.current) return;
-    if (activeTrekId && TREK_CENTER[activeTrekId]) {
-      const { lat, lng, delta } = TREK_CENTER[activeTrekId];
-      mapRef.current.animateToRegion({ latitude: lat, longitude: lng, latitudeDelta: delta, longitudeDelta: delta });
-    } else {
-      mapRef.current.animateToRegion({ latitude: GR10_CENTER.lat, longitude: GR10_CENTER.lng, latitudeDelta: 2.5, longitudeDelta: 2.5 });
-    }
-  };
+  const centerOnTrek = () => zoomToTrek();
 
   const importGpx = async () => {
     try {
@@ -154,6 +150,7 @@ export default function MapScreen() {
           latitudeDelta: 2.5,
           longitudeDelta: 2.5,
         }}
+        onMapReady={() => { mapReady.current = true; zoomToTrek(); }}
         showsUserLocation={false}
         showsCompass
         showsScale
@@ -165,13 +162,13 @@ export default function MapScreen() {
           strokeWidth={3}
         />
 
-        {/* Tracé GPX importé */}
-        {gpxTrack && (
+        {/* Tracé GPX du trek actif (embarqué ou importé) */}
+        {trekPoints && trekPoints.length > 0 && (
           <Polyline
-            coordinates={gpxTrack.points.map(([lat, lng]) => ({ latitude: lat, longitude: lng }))}
-            strokeColor={COLORS.gpx}
-            strokeWidth={3}
-            lineDashPattern={[8, 5]}
+            coordinates={trekPoints.map(([lat, lng]) => ({ latitude: lat, longitude: lng }))}
+            strokeColor={gpxTrack ? COLORS.gpx : '#8338EC'}
+            strokeWidth={gpxTrack ? 3 : 2.5}
+            lineDashPattern={gpxTrack ? [8, 5] : undefined}
           />
         )}
 
@@ -222,11 +219,11 @@ export default function MapScreen() {
           <View style={[styles.legendDot, { backgroundColor: '#FFB703' }]} />
           <Text style={styles.legendText}>Refuges</Text>
         </View>
-        {gpxTrack && (
+        {trekPoints && trekPoints.length > 0 && (
           <View style={styles.legendRow}>
             <View style={[styles.legendDot, { backgroundColor: COLORS.gpx }]} />
             <Text style={[styles.legendText, { color: COLORS.gpx, fontWeight: '600' }]}>
-              GPX importé
+              {gpxTrack ? 'GPX importé' : 'Tracé trek'}
             </Text>
           </View>
         )}
