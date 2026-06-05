@@ -284,6 +284,13 @@ export default function MapScreen() {
         )}
       </View>
 
+      {/* DEBUG — à retirer après validation */}
+      <View style={{ position: 'absolute', top: 60, left: 12, backgroundColor: 'rgba(0,0,0,0.7)', padding: 6, borderRadius: 6 }}>
+        <Text style={{ color: '#fff', fontSize: 10 }}>activeTrekId: {activeTrekId ?? 'null'}</Text>
+        <Text style={{ color: '#fff', fontSize: 10 }}>TREK_GPX keys: {Object.keys(TREK_GPX).join(', ')}</Text>
+        <Text style={{ color: '#fff', fontSize: 10 }}>trace pts: {activeTrekId ? (TREK_GPX[activeTrekId]?.length ?? 0) : 0}</Text>
+      </View>
+
       {loading && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="small" color={COLORS.trace} />
