@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { ETAPES, ETAPES_BIDARRAY_SARE, TOTAL_KM, TOTAL_DENIVELE, Etape } from '../data/etapes';
+import { ITINERAIRES } from '../data/itineraires';
 import { useGpx } from '../context/GpxContext';
 import { GpxWaypoint, GpxBadge, GpxTrack } from '../utils/gpxParser';
 import { BadgeType, Itineraire, ItDay, ItWaypoint, parseItineraire } from '../utils/itineraireParser';
@@ -398,17 +399,21 @@ type TabId = 'gr10' | 'gpx' | 'html';
 export default function EtapesScreen() {
   const [selected, setSelected] = useState<Etape | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>('gr10');
-  const { gpxTrack, itineraire, setItineraire } = useGpx();
+  const { gpxTrack, itineraire, setItineraire, activeTrekId } = useGpx();
+
+  // Itinéraire embarqué pour le trek actif (si pas d'itinéraire importé manuellement)
+  const embeddedItineraire = activeTrekId ? (ITINERAIRES[activeTrekId] ?? null) : null;
+  const activeItineraire = itineraire ?? embeddedItineraire;
 
   const hasGpxTab = !!gpxTrack;
-  const hasHtmlTab = !!itineraire;
+  const hasHtmlTab = !!activeItineraire;
 
   // Auto-switch to new content when imported
   useEffect(() => {
-    if (itineraire) { setActiveTab('html'); return; }
+    if (activeItineraire) { setActiveTab('html'); return; }
     if (gpxTrack) { setActiveTab('gpx'); return; }
     setActiveTab('gr10');
-  }, [gpxTrack, itineraire]);
+  }, [gpxTrack, activeItineraire]);
 
   const handleHtmlContent = (content: string) => {
     const parsed = parseItineraire(content);
@@ -422,8 +427,8 @@ export default function EtapesScreen() {
   const triggerHtmlImport = useHtmlImporter(handleHtmlContent);
 
   // Short title for tab (first segment before ' —' or ' ·')
-  const htmlTabTitle = itineraire
-    ? itineraire.title.split(/\s[—·]/)[0].trim().slice(0, 22)
+  const htmlTabTitle = activeItineraire
+    ? activeItineraire.title.split(/\s[—·]/)[0].trim().slice(0, 22)
     : '';
 
   return (
@@ -495,8 +500,8 @@ export default function EtapesScreen() {
       )}
 
       {/* Content */}
-      {activeTab === 'html' && itineraire ? (
-        <HtmlItineraireView itin={itineraire} />
+      {activeTab === 'html' && activeItineraire ? (
+        <HtmlItineraireView itin={activeItineraire} />
       ) : activeTab === 'gpx' && gpxTrack ? (
         <GpxItinerary track={gpxTrack} />
       ) : (
