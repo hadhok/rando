@@ -262,4 +262,47 @@ export const TREKS: Trek[] = [
       },
     ],
   },
+  {
+    id: 'bidarray-sare',
+    name: 'Bidarray → Saint-Jean-Pied-de-Port',
+    days: 2,
+    distance: '42km',
+    dp: '+1.7k',
+    region: 'Pays B.',
+    maxAlt: '1278m',
+    difficulty: 2,
+    color: '#1a6b8a',
+    cardElevPath:
+      'M0,58 L30,45 L60,20 L100,18 L130,22 L160,55 L190,40 L230,10 L260,6 L290,12 L320,50 L360,52 L400,55 L400,60 L0,60 Z',
+    detailElevPath:
+      'M0,58 L30,42 L65,16 L105,14 L135,20 L162,54 L192,36 L235,6 L265,4 L295,10 L325,48 L365,50 L400,54 L400,60 L0,60 Z',
+    trekDays: [
+      {
+        title: 'Jour 1 · Bidarray → Saint-Étienne-de-Baïgorry · Départ 08h00',
+        stages: [
+          { name: 'Bidarray', dist: '0km', alt: '95m', dp: '—', time: '08h00', badges: ['water'] },
+          { name: 'Col de Méhatché', dist: '5km', alt: '708m', dp: '+613m', time: '10h00' },
+          { name: "Pic Ur / Crêtes d'Aldudes", dist: '10km', alt: '1118m', dp: '+1100m', time: '12h00', rowType: 'highlight' },
+          { name: 'Col Adi', dist: '14km', alt: '1115m', dp: '+1180m', time: '13h00', badges: ['water'] },
+          { name: 'Saint-Étienne-de-Baïgorry', dist: '22km', alt: '163m', dp: '+1180m', time: '14h30', badges: ['biv', 'water'], rowType: 'biv' },
+        ],
+      },
+      {
+        title: 'Jour 2 · Saint-Étienne → Saint-Jean-Pied-de-Port · Départ 08h30',
+        stages: [
+          { name: 'Saint-Étienne-de-Baïgorry', dist: '0km', alt: '163m', dp: '—', time: '08h30', badges: ['water'] },
+          { name: 'Col Burdincurutcheta', dist: '7km', alt: '1135m', dp: '+972m', time: '11h00', rowType: 'highlight' },
+          { name: 'Col Arnostéguy', dist: '11km', alt: '1278m', dp: '+1192m', time: '12h15' },
+          { name: 'Ferme Ithurramburu', dist: '15km', alt: '600m', dp: '+1192m', time: '13h15', badges: ['water'] },
+          { name: 'Saint-Jean-Pied-de-Port', dist: '20km', alt: '183m', dp: '+1192m', time: '14h00', badges: ['biv', 'water'], rowType: 'biv' },
+        ],
+      },
+    ],
+    notes: [
+      { icon: '🚂', label: 'Retour SNCF', sub: 'SJPP → Bayonne → Hendaye · 1h30 · ~12€' },
+      { icon: '🏠', label: 'Hébergement SJPP', sub: 'Nombreux gîtes pèlerins · Réserver en saison (Compostelle)' },
+      { icon: '💧', label: 'Eau J1', sub: 'Peu de sources entre Bidarray et col Adi — prévoir 1,5 L' },
+      { icon: '🗺', label: 'Carte IGN', sub: '1346OT Bayonne · Pays Basque Nord' },
+    ],
+  },
 ];
