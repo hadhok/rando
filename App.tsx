@@ -1,7 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Platform, Text, View, StyleSheet } from 'react-native';
+import { Platform, Text, View, StyleSheet, ScrollView } from 'react-native';
+
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: Error | null }> {
+  constructor(props: any) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <ScrollView style={{ flex: 1, backgroundColor: '#231f17', padding: 20 }}>
+          <Text style={{ color: '#ef4444', fontFamily: 'Courier New', fontSize: 14, marginTop: 40 }}>
+            {'⚠ Erreur de rendu\n\n' + this.state.error.toString() + '\n\n' + this.state.error.stack}
+          </Text>
+        </ScrollView>
+      );
+    }
+    return this.props.children;
+  }
+}
 import { GpxProvider, useGpx, SyncStatus } from './src/context/GpxContext';
 import { C, FF, injectFonts } from './src/theme';
 
@@ -76,6 +93,7 @@ export default function App() {
   }, []);
 
   return (
+    <ErrorBoundary>
     <GpxProvider>
       <View style={styles.root}>
         <AppHeader isOnline={isOnline} />
@@ -119,6 +137,7 @@ export default function App() {
         </NavigationContainer>
       </View>
     </GpxProvider>
+    </ErrorBoundary>
   );
 }
 
