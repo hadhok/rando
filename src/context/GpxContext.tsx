@@ -211,7 +211,7 @@ export function GpxProvider({ children }: { children: React.ReactNode }) {
         }
         setIsInitializing(false);
       }
-    );
+    ).catch(() => setIsInitializing(false));
   }, []);
 
   const setGpxTrack = useCallback((track: GpxTrack | null) => {
