@@ -141,7 +141,9 @@ export const ITINERAIRE_BIDARRAY_SJPP: Itineraire = {
     },
   ],
   notes:
-    'Retour : SNCF Saint-Jean-Pied-de-Port → Bayonne → Hendaye (1h30, ~12€). ' +
+    'Aller : TER Bayonne → Bidarray-Ossès (~50 min, 4–5 trains/j). ' +
+    'Retour : TER Saint-Jean-Pied-de-Port → Bayonne (~1h15, 4–5 trains/j, ~8€). ' +
+    'Horaires exacts sur ter.sncf.com (ligne 64 Bayonne–Saint-Jean-Pied-de-Port). ' +
     'Hébergement J1 Saint-Étienne : gîte communal Etxola, hôtels, chambres d\'hôtes. ' +
     'Hébergement J2 SJPP : nombreux gîtes pèlerins (Compostelle), réserver en saison. ' +
     'Balises GR10 blanches et rouges tout le long.',

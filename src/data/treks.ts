@@ -299,7 +299,8 @@ export const TREKS: Trek[] = [
       },
     ],
     notes: [
-      { icon: '🚂', label: 'Retour SNCF', sub: 'SJPP → Bayonne → Hendaye · 1h30 · ~12€' },
+      { icon: '🚂', label: 'Aller — Bayonne → Bidarray', sub: 'TER ligne 64 · ~50 min · 4–5 trains/j · Gare Bidarray-Ossès · ter.sncf.com' },
+      { icon: '🚂', label: 'Retour — SJPP → Bayonne', sub: 'TER ligne 64 · ~1h15 · 4–5 trains/j · ~8€ · ter.sncf.com' },
       { icon: '🏠', label: 'Hébergement SJPP', sub: 'Nombreux gîtes pèlerins · Réserver en saison (Compostelle)' },
       { icon: '💧', label: 'Eau J1', sub: 'Peu de sources entre Bidarray et col Adi — prévoir 1,5 L' },
       { icon: '🗺', label: 'Carte IGN', sub: '1346OT Bayonne · Pays Basque Nord' },
