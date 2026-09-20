@@ -14,6 +14,7 @@ import {
 } from '../utils/tileCache';
 import { parseGpx } from '../utils/gpxParser';
 import { useGpx } from '../context/GpxContext';
+import { TREK_GPX } from '../data/trekGpx';
 import SyncModal from '../components/SyncModal';
 
 function useLeafletCSS() {
@@ -274,7 +275,7 @@ export default function MapScreen() {
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [showDlPanel, setShowDlPanel] = useState(false);
   const [showSync, setShowSync] = useState(false);
-  const { gpxTrack, setGpxTrack, syncCode, syncStatus } = useGpx();
+  const { gpxTrack, setGpxTrack, syncCode, syncStatus, activeTrekId } = useGpx();
   const [gpxError, setGpxError] = useState('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -350,6 +351,20 @@ export default function MapScreen() {
         />
         <Polyline positions={traceCoords} color={COLORS.trace} weight={3} />
 
+        {(Object.keys(TREK_GPX) as string[]).map((trekId) => (
+          <Polyline
+            key={`trek-${trekId}`}
+            positions={TREK_GPX[trekId] as [number, number][]}
+            color={COLORS.gpx}
+            weight={trekId === activeTrekId ? 4 : 2}
+            opacity={trekId === activeTrekId ? 0.9 : 0.4}
+          />
+        ))}
+
+        {activeTrekId && TREK_GPX[activeTrekId] && (
+          <FitBoundsToGpx points={TREK_GPX[activeTrekId]} />
+        )}
+
         {gpxTrack && (
           <>
             <Polyline
@@ -419,6 +434,10 @@ export default function MapScreen() {
         <View style={styles.legendRow}>
           <Text style={styles.legendEmoji}>⛺</Text>
           <Text style={styles.legendText}>Bivouacs</Text>
+        </View>
+        <View style={styles.legendRow}>
+          <View style={[styles.legendDot, { backgroundColor: COLORS.gpx }]} />
+          <Text style={styles.legendText}>Treks</Text>
         </View>
         {gpxTrack && (
           <View style={styles.legendRow}>
