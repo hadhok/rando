@@ -98,11 +98,13 @@ function TrekDetail({
     },
   })).current;
 
+  const saveTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleNotesChange = (text: string) => {
     setMyNotes(text);
     setSaved(false);
     onNoteChange(text);
-    setSaved(true);
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => setSaved(true), 600);
   };
 
   const countdown = daysUntil(departureDate);

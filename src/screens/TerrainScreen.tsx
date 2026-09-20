@@ -424,9 +424,11 @@ export default function TerrainScreen() {
     ? (TERRAIN_BY_TREK[activeTrekId] ?? ALL_TERRAIN_CARDS)
     : ALL_TERRAIN_CARDS;
 
-  const [expanded, setExpanded] = useState<Record<string, boolean>>(
-    Object.fromEntries(terrainCards.filter(c => c.defaultOpen).map(c => [c.id, true]))
-  );
+  const defaultExpanded = Object.fromEntries(terrainCards.filter(c => c.defaultOpen).map(c => [c.id, true]));
+  const [expanded, setExpanded] = useState<Record<string, boolean>>(defaultExpanded);
+  useEffect(() => {
+    setExpanded(Object.fromEntries(terrainCards.filter(c => c.defaultOpen).map(c => [c.id, true])));
+  }, [activeTrekId]);
   const [psExpanded, setPsExpanded] = useState<Record<string, boolean>>({});
   const [weather, setWeather]       = useState<Record<string, ZoneResult | null>>({});
   const [hourly, setHourly]         = useState<Record<string, ZoneHourly | null>>({});

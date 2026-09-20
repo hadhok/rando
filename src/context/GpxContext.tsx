@@ -158,8 +158,10 @@ export function GpxProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    (AsyncStorage as any).getMany([KEY_GPX, KEY_IT, KEY_CODE, KEY_NOTES, KEY_ACTIVE, KEY_DATES, KEY_STAGES, KEY_JOURNAL]).then(
-      async (values: Record<string, string | null>) => {
+    const KEYS = [KEY_GPX, KEY_IT, KEY_CODE, KEY_NOTES, KEY_ACTIVE, KEY_DATES, KEY_STAGES, KEY_JOURNAL];
+    AsyncStorage.multiGet(KEYS).then(
+      async (pairs: readonly [string, string | null][]) => {
+        const values: Record<string, string | null> = Object.fromEntries(pairs);
         let localGpx: GpxTrack | null = null;
         let localIt: Itineraire | null = null;
         let localNotes: Notes = {};
