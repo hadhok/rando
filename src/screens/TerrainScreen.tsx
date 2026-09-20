@@ -40,7 +40,7 @@ const ALL_ZONES = [
 
 // Maps trek IDs to weather zone IDs (ayous + artouste share the 'ossau' zone)
 const TREK_TO_WEATHER_ZONE: Record<string, string> = {
-  gr10: 'gr10', ayous: 'ossau', artouste: 'ossau',
+  gr10: 'gr10', ayous: 'ossau', artouste: 'ossau', 'bidarray-sare': 'gr10',
 };
 
 const CACHE_TTL       = 3 * 60 * 60 * 1000;
@@ -268,6 +268,56 @@ const TERRAIN_BY_TREK: Record<string, TerrainCard[]> = {
 };
 TERRAIN_BY_TREK.artouste = TERRAIN_BY_TREK.ayous;
 
+TERRAIN_BY_TREK['bidarray-sare'] = [
+  {
+    id: 'water', icon: '💧', title: "Points d'eau", meta: 'Bidarray → SJPP', defaultOpen: true,
+    rows: [
+      { icon: '●', label: 'Bidarray', sub: 'Fontaine village · Eau potable · km 0', alt: '95m' },
+      { icon: '●', label: 'Col Adi', sub: 'Source · km 14 · Dernier point avant Saint-Étienne', alt: '1115m' },
+      { icon: '●', label: 'Saint-Étienne-de-Baïgorry', sub: 'Fontaine village · km 22 · Eau garantie', alt: '163m' },
+      { icon: '●', label: 'Ferme Ithurramburu (J2)', sub: 'Point d\'eau · km 15 J2 · Confirmer disponibilité', alt: '600m' },
+      { icon: '●', label: 'Saint-Jean-Pied-de-Port', sub: 'Village · Fontaines multiples · km 20 J2', alt: '183m' },
+      { icon: '⚠️', label: 'J1 — Bidarray → Col Adi', sub: 'Peu de sources en crête — prévoir 1,5 L au départ', warning: true },
+    ],
+  },
+  {
+    id: 'bivouac', icon: '⛺', title: 'Spots bivouac', meta: 'GR10 hors PNP',
+    rows: [
+      { icon: 'J1', label: "Crêtes d'Aldudes", sub: 'Terrain ouvert · Vents forts possibles · Vue panoramique', alt: '1118m' },
+      { icon: 'J1', label: 'Zone Col Adi', sub: 'Terrain herbeux · Peu de vent sous la crête · Eau proche', alt: '1115m' },
+      { icon: 'J2', label: 'Col Burdincurutcheta', sub: 'Zone ouverte · Terrain exposé · Magnifique vue', alt: '1135m' },
+      { icon: '⚠️', label: 'Crêtes exposées', sub: 'Vent fort possible même en été — prévoir coupe-vent', warning: true },
+    ],
+  },
+  {
+    id: 'fauna', icon: '🐴', title: 'Faune & flore',
+    rows: [
+      { icon: '🐄', label: 'Vaches basques', sub: 'Nombreuses en crête · Ne pas déranger · Inoffensives' },
+      { icon: '🐴', label: 'Pottoks', sub: 'Chevaux basques sauvages · Présents sur les crêtes d\'Aldudes' },
+      { icon: '🦅', label: 'Vautours fauves', sub: 'Présents au-dessus des crêtes · Envergure 2,5 m' },
+      { icon: '🦔', label: 'Tiques', sub: 'Prairies et lisières · Vérifier le soir · Pince obligatoire' },
+    ],
+  },
+  {
+    id: 'regs', icon: '⚖️', title: 'Réglementation',
+    rows: [
+      { icon: '✓', label: 'Hors Parc National', sub: 'Tracé hors PNP — réglementation communale locale' },
+      { icon: '✓', label: 'Bivouac', sub: 'Toléré en zone pastorale · Respecter les troupeaux · Partir avant 9h' },
+      { icon: '✗', label: 'Feux interdits', sub: 'Arrêté préfectoral permanent Pyrénées-Atlantiques' },
+      { icon: '⚠️', label: 'Zone frontalière J1', sub: 'Crêtes longent la frontière espagnole — rester sur balisage GR', warning: true },
+    ],
+  },
+  {
+    id: 'maps', icon: '🗺', title: 'Cartes & navigation',
+    rows: [
+      { icon: '📄', label: '1346OT — Hendaye / La Rhune', sub: 'Carte IGN 1:25 000 · Couvre Bidarray–Aldudes' },
+      { icon: '📄', label: '1346ET — Saint-Jean-Pied-de-Port', sub: 'Carte IGN 1:25 000 · Couvre Saint-Étienne–SJPP' },
+      { icon: '📱', label: 'OsmAnd / Komoot', sub: 'GPX GR10 Bidarray–SJPP · Fonds OSM hors ligne' },
+    ],
+  },
+  CARDS_SOS,
+];
+
 const ALL_TERRAIN_CARDS: TerrainCard[] = [
   ...TERRAIN_BY_TREK.gr10.filter(c => c.id !== 'sos'),
   ...TERRAIN_BY_TREK.ayous.filter(c => c.id !== 'sos'),
@@ -357,6 +407,12 @@ const NUMEROS_BY_TREK: Record<string, NumItem[]> = {
   ],
 };
 NUMEROS_BY_TREK.artouste = NUMEROS_BY_TREK.ayous;
+NUMEROS_BY_TREK['bidarray-sare'] = [
+  { icon: '🚂', label: 'SNCF TER Bayonne–SJPP', sub: 'Infos horaires ligne 64 · Lun–Dim', tel: '3635' },
+  { icon: '🏠', label: 'Gîte Etxola — Saint-Étienne', sub: 'Gîte communal · Réserver à l\'avance', tel: '0559374782' },
+  { icon: '📍', label: 'Office Tourisme SJPP', sub: 'Hébergements, infos · Lun–Sam 9h–18h', tel: '0559370357' },
+  { icon: '🚓', label: 'Gendarmerie Saint-Jean-Pied-de-Port', sub: 'Non-urgence', tel: '0559370005' },
+];
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
