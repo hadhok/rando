@@ -16,7 +16,7 @@ import { useGpx } from '../context/GpxContext';
 import { useTrek } from '../context/TrekContext';
 import { GpxWaypoint, GpxBadge, GpxTrack } from '../utils/gpxParser';
 import { BadgeType, Itineraire, ItDay, ItWaypoint, parseItineraire } from '../utils/itineraireParser';
-import { Platform as RNPlatform } from 'react-native';
+
 
 // ─── Difficulty helpers ───────────────────────────────────────────────────────
 

@@ -11,7 +11,8 @@ import { TREKS } from '../data/treks';
 
 const WMO_LABEL: Record<number, string> = {
   0: 'Ciel dégagé', 1: 'Peu nuageux', 2: 'Partiellement nuageux', 3: 'Couvert',
-  45: 'Brouillard', 51: 'Bruine légère', 53: 'Bruine', 55: 'Bruine forte',
+  45: 'Brouillard', 48: 'Brouillard givrant',
+  51: 'Bruine légère', 53: 'Bruine', 55: 'Bruine forte',
   61: 'Pluie légère', 63: 'Pluie', 65: 'Pluie forte',
   71: 'Neige légère', 73: 'Neige', 75: 'Neige forte',
   80: 'Averses', 81: 'Averses', 82: 'Averses fortes',
@@ -19,7 +20,8 @@ const WMO_LABEL: Record<number, string> = {
 };
 const WMO_EMOJI: Record<number, string> = {
   0: '☀️', 1: '🌤', 2: '⛅', 3: '☁️',
-  45: '🌫', 51: '🌦', 53: '🌦', 55: '🌧',
+  45: '🌫', 48: '🌫',
+  51: '🌦', 53: '🌦', 55: '🌧',
   61: '🌧', 63: '🌧', 65: '🌧',
   71: '🌨', 73: '❄️', 75: '❄️',
   80: '🌦', 81: '🌧', 82: '⛈',

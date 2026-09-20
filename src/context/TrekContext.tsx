@@ -66,8 +66,8 @@ export function buildTrekPlan(
   const lastEtape = ETAPES[end];
   const nom =
     firstEtape && lastEtape
-      ? `GR10 · ${firstEtape.depart} → ${lastEtape.arrivee}`
-      : 'Mon Trek GR10';
+      ? `${firstEtape.depart} → ${lastEtape.arrivee}`
+      : 'Mon Trek';
 
   return { nom, dateDebut, jours };
 }
