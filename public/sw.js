@@ -1,4 +1,4 @@
-const CACHE = 'gr10-offline-v1';
+const CACHE = 'gr10-offline-v2';
 const TILE_CACHE = 'gr10-ign-tiles-v1';
 
 // Installation : mise en cache du shell applicatif
@@ -16,6 +16,8 @@ self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => k !== CACHE && k !== TILE_CACHE).map((k) => caches.delete(k)))
+    ).then(() => self.clients.matchAll()).then((clients) =>
+      clients.forEach((c) => c.navigate(c.url))
     )
   );
   self.clients.claim();
